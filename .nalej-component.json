@@ -1,0 +1,11 @@
+{
+    "language": "golang",
+    "application_list": [
+        "example-app other-app"
+    ],
+    "tools": [
+        "azure",
+        "k8s",
+        "docker"
+    ]
+}

@@ -1,0 +1,33 @@
+###
+# Application example
+###
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    cluster: management
+    component: example
+  name: example
+  namespace: __NPH_NAMESPACE
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      cluster: management
+      component: example
+  template:
+    metadata:
+      labels:
+        cluster: management
+        component: example
+    spec:
+      containers:
+      - name: example
+        image: __NPH_REGISTRY/__NPH_REGISTRY_NAMESPACE/example-app:__NPH_VERSION
+        imagePullPolicy: Always
+        securityContext:
+          runAsUser: 2000
+      imagePullSecrets:
+      - name: nalej-registry
