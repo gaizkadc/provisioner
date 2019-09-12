@@ -18,14 +18,13 @@ var debugLevel bool
 var consoleLogging bool
 
 var rootCmd = &cobra.Command{
-	Use:   "example",
-	Short: "Example of a cobra command",
-	Long:  `A long explanation about what is a cobra command`,
+	Use:   "provisioner-cli",
+	Short: "Provisioner CLI",
+	Long:  `A command line application to provision management clusters`,
 	Version: "unknown-version",
-
 	Run: func(cmd *cobra.Command, args []string) {
 		SetupLogging()
-		log.Info().Msg("This is a root message")
+		cmd.Help()
 	},
 }
 
