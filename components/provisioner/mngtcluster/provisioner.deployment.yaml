@@ -7,8 +7,8 @@ apiVersion: apps/v1
 metadata:
   labels:
     cluster: management
-    component: example
-  name: example
+    component: provisioner
+  name: provisioner
   namespace: __NPH_NAMESPACE
 spec:
   replicas: 1
@@ -16,16 +16,16 @@ spec:
   selector:
     matchLabels:
       cluster: management
-      component: example
+      component: provisioner
   template:
     metadata:
       labels:
         cluster: management
-        component: example
+        component: provisioner
     spec:
       containers:
-      - name: example
-        image: __NPH_REGISTRY/__NPH_REGISTRY_NAMESPACE/example-app:__NPH_VERSION
+      - name: provisioner
+        image: __NPH_REGISTRY/__NPH_REGISTRY_NAMESPACE/provisioner:__NPH_VERSION
         imagePullPolicy: Always
         securityContext:
           runAsUser: 2000

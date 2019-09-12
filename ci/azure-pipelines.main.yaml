@@ -1,8 +1,8 @@
 variables: 
   - name: appList
-    value: 'example-app other-app'  # Space separated list of apps to build
+    value: 'provisioner provisioner-cli'  # Space separated list of apps to build
   - name: imageList
-    value: 'example-app' # Space separated list of docker images to build
+    value: 'provisioner' # Space separated list of docker images to build
   - group: common-vars
   - group: slack-webhooks
   - group: docker-registries

@@ -17,28 +17,15 @@ import (
 var debugLevel bool
 var consoleLogging bool
 
-var msg = `          ----------
-         |  --------  |
-         | |########| |       __________
-         | |########| |      /__________\
- --------|  --------  |------|    --=-- |-------------
-|         ----,-,-----'      |  ======  |             |
-|       ______|_|_______     |__________|             |
-|      /  %%%%%%%%%%%%  \                             |
-|     /  %%%%%%%%%%%%%%  \                            |
-|     ^^^^^^^^^^^^^^^^^^^^                            |
-+-----------------------------------------------------+
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^`
-
 var rootCmd = &cobra.Command{
-	Use:   "example",
-	Short: "Example of a cobra command",
-	Long:  `A long explanation about what is a cobra command`,
+	Use:   "provisioner",
+	Short: "Provisioner component",
+	Long:  `The provisioner will create clusters on cloud providers`,
 	Version: "unknown-version",
+
 	Run: func(cmd *cobra.Command, args []string) {
 		SetupLogging()
-		log.Info().Msg("You're running other example application.")
-		fmt.Println(msg)
+		cmd.Help()
 	},
 }
 
