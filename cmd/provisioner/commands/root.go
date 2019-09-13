@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2018 Nalej - All Rights Reserved
+ * Copyright (C) 2019 Nalej - All Rights Reserved
  */
 
 package commands
 
 import (
-	"github.com/nalej/golang-template/version"
+	"github.com/nalej/provisioner/version"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
