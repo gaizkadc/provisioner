@@ -16,6 +16,8 @@ import (
 
 var debugLevel bool
 var consoleLogging bool
+var azureCredentialsPath string
+
 
 var rootCmd = &cobra.Command{
 	Use:   "provisioner-cli",

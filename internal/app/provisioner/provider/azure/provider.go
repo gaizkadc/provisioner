@@ -7,7 +7,7 @@ package azure
 import (
 	"github.com/nalej/derrors"
 	"github.com/nalej/grpc-provisioner-go"
-	entities2 "github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
+	providerEntities "github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 )
 
@@ -15,7 +15,7 @@ type AzureInfrastructureProvider struct{
 	credentials * AzureCredentials
 }
 
-func NewAzureInfrastructureProvider(credentials *grpc_provisioner_go.AzureCredentials) entities2.InfrastructureProvider {
+func NewAzureInfrastructureProvider(credentials *grpc_provisioner_go.AzureCredentials) providerEntities.InfrastructureProvider {
 	creds := NewAzureCredentials(credentials)
 	return &AzureInfrastructureProvider{creds}
 }
