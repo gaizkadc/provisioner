@@ -13,35 +13,36 @@ import (
 
 // CLIProvisioner structure to watch the provisioning process.
 type CLIProvisioner struct {
-	request *grpc_provisioner_go.ProvisionClusterRequest
+	request  *grpc_provisioner_go.ProvisionClusterRequest
 	Executor workflow.Executor
 }
 
-func NewCLIProvisioner(request *grpc_provisioner_go.ProvisionClusterRequest) *CLIProvisioner{
+func NewCLIProvisioner(request *grpc_provisioner_go.ProvisionClusterRequest) *CLIProvisioner {
 	return &CLIProvisioner{
 		request:  request,
 		Executor: workflow.GetExecutor(),
 	}
 }
 
-func (cp * CLIProvisioner) Run() derrors.Error{
+func (cp *CLIProvisioner) Run() derrors.Error {
 	log.Debug().Str("target_platform", cp.request.TargetPlatform.String()).Msg("Provision request received")
 	provider, err := provider.NewInfrastructureProvider(cp.request.TargetPlatform, cp.request.AzureCredentials)
-	if err != nil{
+	if err != nil {
 		log.Error().Msg("cannot obtain infrastructure provider")
 		return err
 	}
 	operation, err := provider.Provision(entities.NewProvisionRequest(cp.request))
-	if err != nil{
+	if err != nil {
 		log.Error().Str("trace", err.DebugReport()).Msg("cannot create provision operation")
 		return err
 	}
 	cp.Executor.ScheduleOperation(operation)
 	start := time.Now()
 	checks := 0
-	for cp.Executor.IsManaged(cp.request.RequestId){
-		if checks % 4 == 0{
-			fmt.Printf("Provision operation %s - %s\n", operation.Progress(), time.Since(start).String())
+	for cp.Executor.IsManaged(cp.request.RequestId) {
+		time.Sleep(15 * time.Second)
+		if checks%4 == 0 {
+			fmt.Printf("Provision operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
 		}
 		checks++
 	}
@@ -49,16 +50,25 @@ func (cp * CLIProvisioner) Run() derrors.Error{
 	fmt.Println("Provisioning took ", elapsed)
 	// Process the result
 	result := operation.Result()
-	if result.Progress == entities.Error{
-		fmt.Println("Provisioning failed")
-		return derrors.NewInternalError(result.ErrorMsg)
-	}
-	task_elapsed := time.Duration(result.ElapsedTime) * time.Millisecond
-	log.Debug().Str("elapsed_time", task_elapsed.String()).Msg("result metadata")
-	if result.ProvisionResult != nil{
-		log.Debug().Str("raw", result.ProvisionResult.RawKubeConfig).Msg("KubeConfig")
-	}
-	// TODO Write the kubeconfig result
+	cp.printResult(result)
 	return nil
 }
 
+// printResult prints the result of the command.
+func (cp *CLIProvisioner) printResult(result entities.OperationResult){
+	fmt.Printf("Request:\t%s\n", result.RequestId)
+	fmt.Printf("Type:\t%s\n", entities.ToOperationTypeString[result.Type])
+	fmt.Printf("Progress:\t%s\n",  entities.TaskProgressToString[result.Progress])
+	fmt.Printf("Elapsed Time:\t%s\n",  result.ElapsedTime)
+	if result.Progress == entities.Error{
+		fmt.Printf("Error:\t%s\n",  result.ErrorMsg)
+	}else{
+		if result.ProvisionResult != nil{
+	// TODO Write the kubeconfig result
+			log.Debug().Str("raw", result.ProvisionResult.RawKubeConfig).Msg("KubeConfig")
+		}else{
+			log.Warn().Msg("expecting provisioning result")
+		}
+	}
+
+}

@@ -14,17 +14,17 @@ import (
 )
 
 type Handler struct {
-Manager Manager
+	Manager Manager
 }
 
-func NewHandler(manager Manager) *Handler{
+func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
 // ProvisionCluster triggers the provisioning operation on a given cloud infrastructure provider.
 func (h *Handler) ProvisionCluster(ctx context.Context, request *grpc_provisioner_go.ProvisionClusterRequest) (*grpc_provisioner_go.ProvisionClusterResponse, error) {
 	err := entities.ValidProvisionClusterRequest(request)
-	if err != nil{
+	if err != nil {
 		log.Warn().Str("trace", err.DebugReport()).Msg(err.Error())
 		return nil, conversions.ToGRPCError(err)
 	}

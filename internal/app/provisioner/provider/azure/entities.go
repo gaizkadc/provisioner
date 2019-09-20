@@ -17,10 +17,9 @@ type AzureCredentials struct {
 	SqlManagementEndpointUrl       string
 	GalleryEndpointUrl             string
 	ManagementEndpointUrl          string
-
 }
 
-func NewAzureCredentials(credentials * grpc_provisioner_go.AzureCredentials) *AzureCredentials{
+func NewAzureCredentials(credentials *grpc_provisioner_go.AzureCredentials) *AzureCredentials {
 	return &AzureCredentials{
 		ClientId:                       credentials.ClientId,
 		ClientSecret:                   credentials.ClientSecret,

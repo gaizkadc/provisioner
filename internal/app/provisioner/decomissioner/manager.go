@@ -11,11 +11,11 @@ import (
 
 type Manager struct {
 	sync.Mutex
-	Config      config.Config
+	Config config.Config
 }
 
 func NewManager(config config.Config) Manager {
 	return Manager{
-		Config:      config,
+		Config: config,
 	}
 }

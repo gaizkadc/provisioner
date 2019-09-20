@@ -21,21 +21,38 @@ const (
 	Finished
 )
 
-// ToGRPCProvisionProgress contains the mapping between the internal and gRPC progress structure.
-var ToGRPCProvisionProgress = map[TaskProgress]grpc_provisioner_go.ProvisionProgress{
-	Init:grpc_provisioner_go.ProvisionProgress_INIT,
-	Registered:grpc_provisioner_go.ProvisionProgress_REGISTERED,
-	InProgress:grpc_provisioner_go.ProvisionProgress_IN_PROGRESS,
-	Error:grpc_provisioner_go.ProvisionProgress_ERROR,
-	Finished:grpc_provisioner_go.ProvisionProgress_FINISHED,
+var TaskProgressToString = map[TaskProgress]string{
+	Init: "Init",
+	Registered: "Registered",
+	InProgress: "InProgress",
+	Error: "Error",
+	Finished: "Finished",
 }
 
+// ToGRPCProvisionProgress contains the mapping between the internal and gRPC progress structure.
+var ToGRPCProvisionProgress = map[TaskProgress]grpc_provisioner_go.ProvisionProgress{
+	Init:       grpc_provisioner_go.ProvisionProgress_INIT,
+	Registered: grpc_provisioner_go.ProvisionProgress_REGISTERED,
+	InProgress: grpc_provisioner_go.ProvisionProgress_IN_PROGRESS,
+	Error:      grpc_provisioner_go.ProvisionProgress_ERROR,
+	Finished:   grpc_provisioner_go.ProvisionProgress_FINISHED,
+}
+
+
+
 type OperationType int
+
 const (
 	Provision OperationType = iota
 	Decomission
 	Scale
 )
+
+var ToOperationTypeString = map[OperationType]string{
+	Provision: "Provision",
+	Decomission: "Decomission",
+	Scale: "Scale",
+}
 
 // OperationResult with the result of a successful infrastructure operation
 type OperationResult struct {
@@ -46,22 +63,22 @@ type OperationResult struct {
 	// Progress with the state of the operation.
 	Progress TaskProgress
 	// ElapsedTime with the time since the operation was launched.
-	ElapsedTime int64
+	ElapsedTime string
 	// ErrorMsg contains a description of the error in case the operation failed.
 	ErrorMsg string
 	// ProvisionResult with the results of a provisioning operation.
-	ProvisionResult * ProvisionResult
+	ProvisionResult *ProvisionResult
 }
 
-func (or * OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.ProvisionClusterResponse, derrors.Error) {
+func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.ProvisionClusterResponse, derrors.Error) {
 	if or.Type != Provision {
 		return nil, derrors.NewInternalError("cannot create provision cluster response for other type").WithParams(or)
 	}
-	
+
 	kubeConfig := ""
 	var staticIpAddresses *grpc_installer_go.StaticIPAddresses
-	
-	if or.ProvisionResult != nil{
+
+	if or.ProvisionResult != nil {
 		kubeConfig = or.ProvisionResult.RawKubeConfig
 		// TODO Add resulting ip addresses
 		staticIpAddresses = &grpc_installer_go.StaticIPAddresses{
@@ -73,11 +90,12 @@ func (or * OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.Pro
 			VpnServer:   "",
 		}
 	}
-	
+
 	return &grpc_provisioner_go.ProvisionClusterResponse{
 		RequestId:         or.RequestId,
 		State:             ToGRPCProvisionProgress[or.Progress],
-		ElapsedTime:       or.ElapsedTime,
+		// TODO Change proto type
+		ElapsedTime:       0,
 		Error:             or.ErrorMsg,
 		RawKubeConfig:     kubeConfig,
 		StaticIpAddresses: staticIpAddresses,

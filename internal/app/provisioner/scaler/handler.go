@@ -14,7 +14,7 @@ type Handler struct {
 	Manager Manager
 }
 
-func NewHandler(manager Manager) *Handler{
+func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
@@ -29,5 +29,3 @@ func (h *Handler) CheckProgress(context.Context, *grpc_common_go.RequestId) (*gr
 func (h *Handler) RemoveScale(context.Context, *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
 	panic("implement me")
 }
-
-

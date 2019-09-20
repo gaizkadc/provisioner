@@ -21,4 +21,3 @@ type InfrastructureProvider interface {
 	// Scale a cluster creates a InfrastructureOperation to scale a cluster.
 	Scale(request entities.ScaleRequest) (entities.InfrastructureOperation, derrors.Error)
 }
-

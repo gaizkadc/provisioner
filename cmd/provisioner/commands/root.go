@@ -18,9 +18,9 @@ var debugLevel bool
 var consoleLogging bool
 
 var rootCmd = &cobra.Command{
-	Use:   "provisioner",
-	Short: "Provisioner component",
-	Long:  `The provisioner will create clusters on cloud providers`,
+	Use:     "provisioner",
+	Short:   "Provisioner component",
+	Long:    `The provisioner will create clusters on cloud providers`,
 	Version: "unknown-version",
 
 	Run: func(cmd *cobra.Command, args []string) {

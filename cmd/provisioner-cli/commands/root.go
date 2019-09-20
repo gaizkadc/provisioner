@@ -18,11 +18,10 @@ var debugLevel bool
 var consoleLogging bool
 var azureCredentialsPath string
 
-
 var rootCmd = &cobra.Command{
-	Use:   "provisioner-cli",
-	Short: "Provisioner CLI",
-	Long:  `A command line application to provision management clusters`,
+	Use:     "provisioner-cli",
+	Short:   "Provisioner CLI",
+	Long:    `A command line application to provision management clusters`,
 	Version: "unknown-version",
 	Run: func(cmd *cobra.Command, args []string) {
 		SetupLogging()

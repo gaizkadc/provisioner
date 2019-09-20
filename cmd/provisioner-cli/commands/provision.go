@@ -24,14 +24,16 @@ var provisionCmd = &cobra.Command{
 	},
 }
 
-func TriggerProvisioning(){
+func TriggerProvisioning() {
 	cliProvisioner := provisioner_cli.NewCLIProvisioner(&provisionRequest)
 	err := cliProvisioner.Run()
 	ExitOnError(err, "provisioning failed")
 }
 
-func ConfigureProvisioning(){
+func ConfigureProvisioning() {
 	provisionRequest.RequestId = "cli-request"
+	provisionRequest.OrganizationId = "nalej"
+	provisionRequest.ClusterId = "mngt"
 	// From the CLI only management clusters may be provisioned.
 	provisionRequest.IsManagementCluster = true
 	// Only kubernetes clusters for now
@@ -42,8 +44,8 @@ func ConfigureProvisioning(){
 	provisionRequest.TargetPlatform = targetPlatform
 
 	// Load credentials depending on the target platform
-	if provisionRequest.TargetPlatform == grpc_installer_go.Platform_AZURE{
-		if azureCredentialsPath == ""{
+	if provisionRequest.TargetPlatform == grpc_installer_go.Platform_AZURE {
+		if azureCredentialsPath == "" {
 			log.Fatal().Msg("azureCredentialsPath must be specified")
 		}
 		credentials, err := LoadAzureCredentials(azureCredentialsPath)

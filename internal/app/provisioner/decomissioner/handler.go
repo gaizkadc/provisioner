@@ -11,13 +11,12 @@ import (
 )
 
 type Handler struct {
-Manager Manager
+	Manager Manager
 }
 
-func NewHandler(manager Manager) *Handler{
+func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
-
 
 func (h *Handler) DecomissionCluster(context.Context, *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_provisioner_go.DecomissionClusterResponse, error) {
 	panic("implement me")
@@ -30,4 +29,3 @@ func (h *Handler) CheckProgress(context.Context, *grpc_common_go.RequestId) (*gr
 func (h *Handler) RemoveDecomission(context.Context, *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
 	panic("implement me")
 }
-

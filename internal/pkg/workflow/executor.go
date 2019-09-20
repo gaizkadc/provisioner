@@ -27,15 +27,15 @@ type Executor struct {
 	Managed map[string]bool
 }
 
-func NewExecutor()Executor{
+func NewExecutor() Executor {
 	return Executor{
 		Queue:       make([]entities.InfrastructureOperation, 0),
 		OnExecution: make(map[string]entities.InfrastructureOperation, 0),
-		Managed:make(map[string]bool, 0),
+		Managed:     make(map[string]bool, 0),
 	}
 }
 
-func GetExecutor() Executor{
+func GetExecutor() Executor {
 	onceExecutor.Do(func() {
 		executorInstance = NewExecutor()
 	})
@@ -43,22 +43,22 @@ func GetExecutor() Executor{
 }
 
 // ScheduleOperation schedules an operation for execution
-func (e *Executor) ScheduleOperation(operation entities.InfrastructureOperation){
+func (e *Executor) ScheduleOperation(operation entities.InfrastructureOperation) {
 	operation.SetProgress(entities.Registered)
 	e.Lock()
 	defer e.Unlock()
-	e.Managed[operation.RequestId()] = true
-	if len(e.OnExecution) > MaxConcurrentOperation{
+	e.Managed[operation.RequestID()] = true
+	if len(e.OnExecution) > MaxConcurrentOperation {
 		log.Debug().Msg("operation has been queued")
 		e.Queue = append(e.Queue, operation)
-	}else{
-		e.OnExecution[operation.RequestId()] = operation
+	} else {
+		e.OnExecution[operation.RequestID()] = operation
 		go operation.Execute(e.operationCallback)
 	}
 }
 
 // IsManaged enables the manager to check if the operation is queued or in progress
-func (e *Executor) IsManaged(requestID string) bool{
+func (e *Executor) IsManaged(requestID string) bool {
 	e.Lock()
 	defer e.Unlock()
 	_, exists := e.Managed[requestID]
@@ -66,30 +66,30 @@ func (e *Executor) IsManaged(requestID string) bool{
 }
 
 // rescheduleNextOperation checks the queued list and picks the first element and proceeds with its execution.
-func (e * Executor) rescheduleNextOperation(){
+func (e *Executor) rescheduleNextOperation() {
 	e.Lock()
 	defer e.Unlock()
 	log.Debug().Int("queued", len(e.Queue)).Int("onExecution", len(e.OnExecution)).Msg("rescheduling next operation")
-	if len(e.Queue) == 0{
+	if len(e.Queue) == 0 {
 		return
 	}
 	// Pick first element of the queue and schedule it.
 	first := e.Queue[0]
 	e.Queue = e.Queue[1:]
-	e.OnExecution[first.RequestId()] = first
+	e.OnExecution[first.RequestID()] = first
 	go first.Execute(e.operationCallback)
 }
 
 // operationCallback function called when the operation finished its execution. This enables rescheduling the next
 // operations from the queue.
-func (e * Executor) operationCallback(requestID string) {
+func (e *Executor) operationCallback(requestID string) {
 	log.Debug().Str("requestID", requestID).Msg("operation callback received")
 	e.Lock()
 	defer e.Unlock()
 	_, exists := e.OnExecution[requestID]
-	if !exists{
+	if !exists {
 		log.Error().Str("requestID", requestID).Msg("attempting to remove a request id not managed by the executor")
-	}else{
+	} else {
 		delete(e.OnExecution, requestID)
 		delete(e.Managed, requestID)
 		go e.rescheduleNextOperation()

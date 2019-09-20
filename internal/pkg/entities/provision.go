@@ -11,29 +11,35 @@ import (
 )
 
 // ValidProvisionClusterRequest validates the request to create a new cluster.
-func ValidProvisionClusterRequest(request *grpc_provisioner_go.ProvisionClusterRequest) derrors.Error{
-	if request.RequestId == ""{
+func ValidProvisionClusterRequest(request *grpc_provisioner_go.ProvisionClusterRequest) derrors.Error {
+	if request.RequestId == "" {
 		return derrors.NewInvalidArgumentError("request_id must be set")
 	}
-	if !request.IsManagementCluster && request.OrganizationId == ""{
+	if !request.IsManagementCluster && request.OrganizationId == "" {
 		return derrors.NewInvalidArgumentError("organization_id must be set")
 	}
-	if !request.IsManagementCluster && request.ClusterId == ""{
+	if !request.IsManagementCluster && request.ClusterId == "" {
 		return derrors.NewInvalidArgumentError("cluster_id must be set")
 	}
-	if request.NumNodes <= 0{
+	if request.NumNodes <= 0 {
 		return derrors.NewInvalidArgumentError("num_nodes must be positive")
 	}
-	if request.NodeType == ""{
+	if request.NodeType == "" {
 		return derrors.NewInvalidArgumentError("node_type must be set")
 	}
-	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil{
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil {
 		return derrors.NewInvalidArgumentError("azure_credentials must be set when type is Azure")
 	}
 	return nil
 }
 
 type ProvisionRequest struct {
+	// RequestID with the request identifier.
+	RequestID string
+	// OrganizationId with the organization identifier.
+	OrganizationID string
+	// ClusterId with the cluster identifier.
+	ClusterID string
 	// NumNodes with the number of nodes of the cluster to be created.
 	NumNodes int64
 	// NodeType with the type of node to be used. This value must exist in the target infrastructure provider.
@@ -44,8 +50,11 @@ type ProvisionRequest struct {
 	IsManagementCluster bool
 }
 
-func NewProvisionRequest(request *grpc_provisioner_go.ProvisionClusterRequest) ProvisionRequest{
+func NewProvisionRequest(request *grpc_provisioner_go.ProvisionClusterRequest) ProvisionRequest {
 	return ProvisionRequest{
+		RequestID:           request.RequestId,
+		OrganizationID:      request.OrganizationId,
+		ClusterID:           request.ClusterId,
 		NumNodes:            request.NumNodes,
 		NodeType:            request.NodeType,
 		Zone:                request.Zone,

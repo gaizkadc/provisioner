@@ -9,8 +9,8 @@ import "github.com/nalej/derrors"
 // InfrastructureOperation represents an ongoing operation being performed by the infrastructure
 // provider.
 type InfrastructureOperation interface {
-	// RequestId returns the request identifier associated with this operation
-	RequestId() string
+	// RequestID returns the request identifier associated with this operation
+	RequestID() string
 	// Metadata returns the operation associated metadata
 	Metadata() OperationMetadata
 	// Log returns the information associated with the execution of the operation
@@ -19,7 +19,7 @@ type InfrastructureOperation interface {
 	Progress() TaskProgress
 	// Execute triggers the execution of the operation. The callback function on the execute is expected to be
 	// called when the operation finish its execution independently of the status.
-	Execute(func(requestId string)) derrors.Error
+	Execute(func(requestID string))
 	// Cancel triggers the cancellation of the operation
 	Cancel() derrors.Error
 	// SetProgress set a new progress to the ongoing operation.
@@ -30,10 +30,10 @@ type InfrastructureOperation interface {
 
 // OperationMetadata associated with the operation.
 type OperationMetadata struct {
-	// OrganizationId associated with the operation.
-	OrganizationId string
-	// ClusterId target of the operation.
-	ClusterId string
-	// RequestId for tracking purposes.
-	RequestId string
+	// OrganizationID associated with the operation.
+	OrganizationID string
+	// ClusterID target of the operation.
+	ClusterID string
+	// RequestID for tracking purposes.
+	RequestID string
 }
