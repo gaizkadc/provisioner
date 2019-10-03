@@ -25,7 +25,7 @@ var rootCmd = &cobra.Command{
 	Version: "unknown-version",
 	Run: func(cmd *cobra.Command, args []string) {
 		SetupLogging()
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 

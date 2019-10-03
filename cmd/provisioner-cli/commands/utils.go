@@ -3,7 +3,7 @@ package commands
 import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/nalej/derrors"
-	grpc_installer_go "github.com/nalej/grpc-installer-go"
+	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-provisioner-go"
 	"github.com/rs/zerolog/log"
 	"os"

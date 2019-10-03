@@ -34,12 +34,13 @@ func NewManager(config config.Config) Manager {
 
 // ProvisionCluster triggers the provisioning operation on a given cloud infrastructure provider.
 func (m *Manager) ProvisionCluster(request *grpc_provisioner_go.ProvisionClusterRequest) (*grpc_provisioner_go.ProvisionClusterResponse, derrors.Error) {
-	log.Debug().Str("requestID", request.RequestId).Str("target_platform", request.TargetPlatform.String()).Msg("Provision request received")
-	provider, err := provider.NewInfrastructureProvider(request.TargetPlatform, request.AzureCredentials)
+	log.Debug().Str("requestID", request.RequestId).
+		Str("target_platform", request.TargetPlatform.String()).Msg("Provision request received")
+	infraProvider, err := provider.NewInfrastructureProvider(request.TargetPlatform, request.AzureCredentials, &m.Config)
 	if err != nil {
 		return nil, err
 	}
-	operation, err := provider.Provision(entities.NewProvisionRequest(request))
+	operation, err := infraProvider.Provision(entities.NewProvisionRequest(request))
 	if err != nil {
 		log.Error().Str("trace", err.DebugReport()).Msg("cannot create provision operation")
 		return nil, err

@@ -43,7 +43,7 @@ func (to *TestOperation) Progress() entities.TaskProgress {
 	return to.progress
 }
 
-func (to *TestOperation) Execute(callback func(requestID string)){
+func (to *TestOperation) Execute(callback func(requestID string)) {
 	to.started = time.Now().Unix()
 	log.Debug().Msg("executing test operation")
 	time.Sleep(time.Second)
@@ -61,9 +61,9 @@ func (to *TestOperation) SetProgress(progress entities.TaskProgress) {
 
 func (to *TestOperation) Result() entities.OperationResult {
 	return entities.OperationResult{
-		RequestId:       to.requestID,
-		Type:            entities.Provision,
-		Progress:        to.progress,
+		RequestId: to.requestID,
+		Type:      entities.Provision,
+		Progress:  to.progress,
 		//ElapsedTime:     time.Now().Sub(time.Unix(to.started, 0)).Nanoseconds(),
 		ErrorMsg:        "",
 		ProvisionResult: nil,

@@ -5,30 +5,25 @@
 package azure
 
 import (
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/nalej/derrors"
 	"github.com/nalej/grpc-provisioner-go"
 	providerEntities "github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
+	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 )
 
 type AzureInfrastructureProvider struct {
 	credentials *AzureCredentials
-	authorizer  autorest.Authorizer
+	config      *config.Config
 }
 
-func NewAzureInfrastructureProvider(credentials *grpc_provisioner_go.AzureCredentials) (providerEntities.InfrastructureProvider, derrors.Error) {
+func NewAzureInfrastructureProvider(credentials *grpc_provisioner_go.AzureCredentials, config *config.Config) (providerEntities.InfrastructureProvider, derrors.Error) {
 	creds := NewAzureCredentials(credentials)
-	// create an authorizer from env vars or Azure Managed Service Idenity
-	authorizer, err := GetAuthorizer(creds)
-	if err != nil {
-		return nil, err
-	}
-	return &AzureInfrastructureProvider{creds, authorizer}, nil
+	return &AzureInfrastructureProvider{creds, config}, nil
 }
 
 func (aip *AzureInfrastructureProvider) Provision(request entities.ProvisionRequest) (entities.InfrastructureOperation, derrors.Error) {
-	return NewProvisionerOperation(aip.credentials, aip.authorizer, request), nil
+	return NewProvisionerOperation(aip.credentials, request, aip.config)
 }
 
 func (aip *AzureInfrastructureProvider) Decomission() (entities.InfrastructureOperation, derrors.Error) {

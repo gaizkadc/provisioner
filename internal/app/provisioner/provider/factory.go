@@ -10,15 +10,16 @@ import (
 	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider/azure"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
+	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/rs/zerolog/log"
 )
 
 // NewInfrastructureProvider creates a new provider for a given target platform. Extra parameters are optional depending
 // on the type of provider to be created.
-func NewInfrastructureProvider(targetPlaform grpc_installer_go.Platform, azureCredentials *grpc_provisioner_go.AzureCredentials) (entities.InfrastructureProvider, derrors.Error) {
+func NewInfrastructureProvider(targetPlaform grpc_installer_go.Platform, azureCredentials *grpc_provisioner_go.AzureCredentials, config *config.Config) (entities.InfrastructureProvider, derrors.Error) {
 	switch targetPlaform {
 	case grpc_installer_go.Platform_AZURE:
-		return azure.NewAzureInfrastructureProvider(azureCredentials)
+		return azure.NewAzureInfrastructureProvider(azureCredentials, config)
 	}
 	log.Debug().Str("targetPlatform", targetPlaform.String()).Msg("unsupported target platform for creating a provider")
 	return nil, derrors.NewUnimplementedError("unsupported target platform for creating a provider").WithParams(targetPlaform.String())

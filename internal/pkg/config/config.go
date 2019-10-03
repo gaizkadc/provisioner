@@ -11,15 +11,20 @@ import (
 )
 
 type Config struct {
+	// LaunchService determines if the service needs to be launched.
+	LaunchService bool
 	// Debug level is active.
 	Debug bool
-
 	// Port where the gRPC API service will listen requests.
 	Port int
+	// TempPath with the path where temporal files may be created.
+	TempPath string
+	// ResourcesPath with the path where extra YAML or resources are stored for some operation.
+	ResourcesPath string
 }
 
 func (conf *Config) Validate() derrors.Error {
-	if conf.Port <= 0 {
+	if conf.LaunchService && conf.Port <= 0 {
 		return derrors.NewInvalidArgumentError("port must be valid")
 	}
 	return nil
@@ -27,5 +32,9 @@ func (conf *Config) Validate() derrors.Error {
 
 func (conf *Config) Print() {
 	log.Info().Str("app", version.AppVersion).Str("commit", version.Commit).Msg("Version")
-	log.Info().Int("port", conf.Port).Msg("gRPC port")
+	if conf.LaunchService {
+		log.Info().Int("port", conf.Port).Msg("gRPC port")
+	}
+	log.Info().Str("path", conf.TempPath).Msg("Temporal files")
+	log.Info().Str("path", conf.ResourcesPath).Msg("Resources")
 }

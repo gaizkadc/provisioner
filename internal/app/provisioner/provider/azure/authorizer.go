@@ -10,9 +10,18 @@ import (
 
 //const AzureBaseURI = "https://management.azure.com"
 const AzureBaseURI = "https://graph.windows.net"
-const GraphBaseURI = AzureBaseURI
+const GraphBaseURI = "https://graph.windows.net"
+const ManagementBaseURI = "https://management.azure.com"
 
-func GetAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.Error) {
+func GetGraphAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.Error) {
+	return GetAuthorizer(credentials, GraphBaseURI)
+}
+
+func GetManagementAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.Error) {
+	return GetAuthorizer(credentials, ManagementBaseURI)
+}
+
+func GetAuthorizer(credentials *AzureCredentials, targetURI string) (autorest.Authorizer, derrors.Error) {
 	// This code is similar to the NewAuthorizerFromFile method, but we take the values from our structure.
 	settings := auth.FileSettings{
 		Values: make(map[string]string, 0),
@@ -32,7 +41,7 @@ func GetAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.
 	settings.Values[auth.ManagementEndpoint] = credentials.ManagementEndpointUrl
 	settings.Values[auth.GraphResourceID] = GraphBaseURI
 
-	auth, err := settings.ClientCredentialsAuthorizer(AzureBaseURI)
+	auth, err := settings.ClientCredentialsAuthorizer(targetURI)
 	if err == nil {
 		return auth, nil
 	}
@@ -40,7 +49,7 @@ func GetAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.
 	return nil, derrors.NewInternalError("auth file missing client and certificate credentials", err)
 }
 
-func GetBearerAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.Error){
+func GetBearerAuthorizer(credentials *AzureCredentials) (autorest.Authorizer, derrors.Error) {
 	oauthConfig, err := adal.NewOAuthConfig(
 		credentials.ActiveDirectoryEndpointUrl, credentials.TenantId)
 	if err != nil {

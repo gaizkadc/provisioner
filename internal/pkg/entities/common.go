@@ -22,11 +22,11 @@ const (
 )
 
 var TaskProgressToString = map[TaskProgress]string{
-	Init: "Init",
+	Init:       "Init",
 	Registered: "Registered",
 	InProgress: "InProgress",
-	Error: "Error",
-	Finished: "Finished",
+	Error:      "Error",
+	Finished:   "Finished",
 }
 
 // ToGRPCProvisionProgress contains the mapping between the internal and gRPC progress structure.
@@ -38,8 +38,6 @@ var ToGRPCProvisionProgress = map[TaskProgress]grpc_provisioner_go.ProvisionProg
 	Finished:   grpc_provisioner_go.ProvisionProgress_FINISHED,
 }
 
-
-
 type OperationType int
 
 const (
@@ -49,9 +47,9 @@ const (
 )
 
 var ToOperationTypeString = map[OperationType]string{
-	Provision: "Provision",
+	Provision:   "Provision",
 	Decomission: "Decomission",
-	Scale: "Scale",
+	Scale:       "Scale",
 }
 
 // OperationResult with the result of a successful infrastructure operation
@@ -92,8 +90,8 @@ func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.Prov
 	}
 
 	return &grpc_provisioner_go.ProvisionClusterResponse{
-		RequestId:         or.RequestId,
-		State:             ToGRPCProvisionProgress[or.Progress],
+		RequestId: or.RequestId,
+		State:     ToGRPCProvisionProgress[or.Progress],
 		// TODO Change proto type
 		ElapsedTime:       0,
 		Error:             or.ErrorMsg,
