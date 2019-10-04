@@ -289,7 +289,7 @@ func (k * Kubernetes) MatchUnstructuredField(obj *unstructured.Unstructured, key
 }
 
 // MatchCRDStatus retrieves a non-namespaced CRD, and checks if a set of keys matches a given value.
-func (k *Kubernetes) MatchCRDStatus(group string, version string, resource string, name string, key []string, expected string) (*bool, derrors.Error){
+func (k *Kubernetes) MatchCRDStatus(namespace string, group string, version string, resource string, name string, key []string, expected string) (*bool, derrors.Error){
 	resourceRequest := schema.GroupVersionResource{
 		Group:    group,
 		Version:  version,
@@ -297,7 +297,11 @@ func (k *Kubernetes) MatchCRDStatus(group string, version string, resource strin
 	}
 
 	var client dynamic.ResourceInterface
-	client = k.dynClient.Resource(resourceRequest)
+	if namespace == ""{
+		client = k.dynClient.Resource(resourceRequest)
+	}else{
+		client = k.dynClient.Resource(resourceRequest).Namespace(namespace)
+	}
 	numRetries := 36
 	issued := false
 	for retry:=0; retry < numRetries && !issued; retry ++{

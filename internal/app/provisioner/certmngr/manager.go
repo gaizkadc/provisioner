@@ -76,7 +76,6 @@ spec:
           - '*.CLUSTER_NAME.DNS_ZONE'
 `
 
-
 // CertManagerHelper structure to install the cert manager on the freshly installed cluster.
 type CertManagerHelper struct {
 	config     *config.Config
@@ -265,20 +264,38 @@ func (cmh *CertManagerHelper) createCertificateIssuerOnAzure(
 // checkCertificateIssuer waits for the certificate to be issued by the authority
 func (cmh *CertManagerHelper) CheckCertificateIssuer() derrors.Error{
 	issued, err := cmh.Kubernetes.MatchCRDStatus(
-		"certmanager.k8s.io",
+		"", "certmanager.k8s.io",
 		"v1alpha1",
 		"clusterissuers", "letsencrypt",
 		[]string{"status", "conditions", "0", "reason"}, "ACMEAccountRegistered")
 	if err != nil{
 		return err
 	}
-	log.Debug().Bool("issued", *issued).Msg("Certificate state")
+	log.Debug().Bool("issued", *issued).Msg("Certificate issuer")
 	return nil
 }
 
 // CreateCertificate creates a new certificate request for a given cluster and dnsZone
 func (cmh *CertManagerHelper) CreateCertificate(clusterName string, dnsZone string) derrors.Error{
+	err := cmh.Kubernetes.CreateNamespaceIfNotExists("nalej")
+	if err != nil{
+		return err
+	}
 	toCreate := strings.ReplaceAll(CertificateTemplate, DNSZoneEntry, dnsZone)
 	toCreate = strings.ReplaceAll(toCreate, ClusterNameEntry, clusterName)
 	return cmh.Kubernetes.CreateUnstructure(toCreate)
 }
+
+func (cmh *CertManagerHelper) ValidateCertificate() derrors.Error{
+	issued, err := cmh.Kubernetes.MatchCRDStatus(
+		"nalej", "certmanager.k8s.io",
+		"v1alpha1",
+		"certificates", "ingress-tls",
+		[]string{"status", "conditions", "0", "reason"}, "CertIssued")
+	if err != nil{
+		return err
+	}
+	log.Debug().Bool("issued", *issued).Msg("cluster certificate")
+	return nil
+}
+

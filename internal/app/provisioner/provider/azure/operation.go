@@ -76,7 +76,6 @@ func (ao *AzureOperation) Progress() entities.TaskProgress {
 }
 
 func (ao *AzureOperation) SetProgress(progress entities.TaskProgress) {
-	log.Debug().Str("new", entities.TaskProgressToString[progress]).Msg("setting new progress")
 	ao.taskProgress = progress
 }
 

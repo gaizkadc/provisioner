@@ -139,6 +139,13 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 		po.notifyError(err, callback)
 		return
 	}
+	po.AddToLog("validating cluster certificate")
+	err = po.certManagerHelper.ValidateCertificate()
+	if err != nil{
+		po.notifyError(err, callback)
+		return
+	}
+
 	log.Debug().Msg("provisioning finished")
 	po.elapsedTime = time.Now().Sub(po.started).String()
 	po.SetProgress(entities.Finished)
