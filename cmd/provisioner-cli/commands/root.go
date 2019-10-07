@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2018 Nalej - All Rights Reserved
+ * Copyright (C) 2019 Nalej - All Rights Reserved
  */
 
 package commands
 
 import (
-	"github.com/nalej/golang-template/version"
+	"github.com/nalej/provisioner/version"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -16,15 +16,16 @@ import (
 
 var debugLevel bool
 var consoleLogging bool
+var azureCredentialsPath string
 
 var rootCmd = &cobra.Command{
-	Use:   "provisioner-cli",
-	Short: "Provisioner CLI",
-	Long:  `A command line application to provision management clusters`,
+	Use:     "provisioner-cli",
+	Short:   "Provisioner CLI",
+	Long:    `A command line application to provision management clusters`,
 	Version: "unknown-version",
 	Run: func(cmd *cobra.Command, args []string) {
 		SetupLogging()
-		cmd.Help()
+		_ = cmd.Help()
 	},
 }
 
