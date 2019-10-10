@@ -24,20 +24,21 @@ spec:
         component: provisioner
     spec:
       containers:
-      - name: provisioner
-        image: __NPH_REGISTRY/__NPH_REGISTRY_NAMESPACE/provisioner:__NPH_VERSION
-        imagePullPolicy: Always
-        volumeMounts:
-        - name: temp-dir
-          mountPath: "/tmp/nalej"
-        args:
-          - "run"
-          - "--debug"
-          - "--tempPath=/tmp/nalej/"
-        securityContext:
-          runAsUser: 2000
+        - name: provisioner
+          image: __NPH_REGISTRY/__NPH_REGISTRY_NAMESPACE/provisioner:__NPH_VERSION
+          imagePullPolicy: Always
+          volumeMounts:
+            - name: temp-dir
+              mountPath: "/tmp/nalej"
+          args:
+            - "run"
+            - "--debug"
+            - "--tempPath=/tmp/nalej/"
+            - "--resourcesPath=/nalej/resources"
+          securityContext:
+            runAsUser: 2000
       volumes:
         - name: temp-dir
           emptyDir: {}
       imagePullSecrets:
-      - name: nalej-registry
+        - name: nalej-registry
