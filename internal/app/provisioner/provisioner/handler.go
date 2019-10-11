@@ -38,5 +38,9 @@ func (h *Handler) CheckProgress(ctx context.Context, requestID *grpc_common_go.R
 
 // RemoveProvision cancels an ongoing provisioning or removes the information of an already processed provision operation.
 func (h *Handler) RemoveProvision(ctx context.Context, requestID *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
-	panic("implement me")
+	err := h.Manager.RemoveProvision(requestID)
+	if err != nil{
+		return nil, err
+	}
+	return &grpc_common_go.Success{}, nil
 }

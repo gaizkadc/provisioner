@@ -79,5 +79,12 @@ func (m *Manager) CheckProgress(requestID *grpc_common_go.RequestId) (*grpc_prov
 
 // RemoveProvision cancels an ongoing provisioning or removes the information of an already processed provision operation.
 func (m *Manager) RemoveProvision(requestID *grpc_common_go.RequestId) derrors.Error {
-	panic("implement me")
+	m.Lock()
+	defer m.Unlock()
+	_, exists := m.Operation[requestID.RequestId]
+	if !exists {
+		return derrors.NewNotFoundError("request_id not found")
+	}
+	delete(m.Operation, requestID.RequestId)
+	return nil
 }
