@@ -3,6 +3,10 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/profiles/2019-03-01/network/mgmt/network"
 	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2019-08-01/containerservice"
@@ -15,9 +19,6 @@ import (
 	"github.com/nalej/provisioner/internal/pkg/entities"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
-	"strings"
-	"sync"
-	"time"
 )
 
 const ContributorRole = "Contributor"
@@ -304,11 +305,13 @@ func (ao *AzureOperation) getVMSubnetID(clusterID string) string {
 }
 
 func (ao *AzureOperation) getClusterName(clusterName string) string {
-	return strings.ToLower(strings.ReplaceAll(clusterName, " ", ""))
+	nospaces := strings.ReplaceAll(clusterName, " ", "")
+	nodots := strings.ReplaceAll(nospaces, ".", "-")
+	return strings.ToLower(nodots)
 }
 
 func (ao *AzureOperation) getResourceName(clusterID string, clusterName string) string {
-	return fmt.Sprintf("%s-%s", clusterID, ao.getClusterName(clusterName))
+	return fmt.Sprintf("%s.%s", clusterID, ao.getClusterName(clusterName))
 }
 
 // createIPAddress reserves an IP address.

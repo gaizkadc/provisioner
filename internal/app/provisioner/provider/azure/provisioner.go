@@ -320,7 +320,14 @@ func (po ProvisionerOperation) createAKSCluster() (*containerservice.ManagedClus
 	}
 	ctx, cancel := common.GetContext()
 	defer cancel()
-	resourceName := po.getResourceName(po.request.ClusterID, po.request.ClusterName)
+
+	var resourceName string
+	if po.request.IsManagementCluster {
+		resourceName = po.getResourceName(po.request.ClusterID, po.request.ClusterName)
+	} else {
+		resourceName = po.getClusterName(po.request.ClusterName)
+	}
+
 	responseFuture, createErr := clusterClient.CreateOrUpdate(ctx, po.request.AzureOptions.ResourceGroup, resourceName, *parameters)
 	if createErr != nil {
 		return nil, derrors.AsError(createErr, "cannot create AKS cluster")
