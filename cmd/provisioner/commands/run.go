@@ -24,14 +24,14 @@ var runCmd = &cobra.Command{
 		cfg.LaunchService = true
 		service := provisioner.NewService(cfg)
 		err := service.Run()
-		if err != nil{
+		if err != nil {
 			log.Fatal().Err(err).Msg("unable to run provisioner service")
 		}
 	},
 }
 
 func init() {
-	runCmd.Flags().IntVar(&cfg.Port, "port", 9010, "Port to launch the provisioner gRPC API")
+	runCmd.Flags().IntVar(&cfg.Port, "port", 8930, "Port to launch the provisioner gRPC API")
 	runCmd.Flags().StringVar(&cfg.TempPath, "tempPath", "./temp/",
 		"Directory to store temporal files")
 	runCmd.Flags().StringVar(&cfg.ResourcesPath, "resourcesPath", "./resources/",
