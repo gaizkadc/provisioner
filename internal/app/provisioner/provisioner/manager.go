@@ -5,15 +5,16 @@
 package provisioner
 
 import (
+	"sync"
+
 	"github.com/nalej/derrors"
-	"github.com/nalej/grpc-common-go"
-	"github.com/nalej/grpc-provisioner-go"
+	grpc_common_go "github.com/nalej/grpc-common-go"
+	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 	"github.com/nalej/provisioner/internal/pkg/workflow"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 type Manager struct {
@@ -61,6 +62,7 @@ func (m *Manager) ProvisionCluster(request *grpc_provisioner_go.ProvisionCluster
 		State:       grpc_provisioner_go.ProvisionProgress_INIT,
 		ElapsedTime: 0,
 		Error:       "",
+		ClusterName: request.ClusterName,
 	}
 	return response, nil
 }
@@ -79,5 +81,12 @@ func (m *Manager) CheckProgress(requestID *grpc_common_go.RequestId) (*grpc_prov
 
 // RemoveProvision cancels an ongoing provisioning or removes the information of an already processed provision operation.
 func (m *Manager) RemoveProvision(requestID *grpc_common_go.RequestId) derrors.Error {
-	panic("implement me")
+	m.Lock()
+	defer m.Unlock()
+	_, exists := m.Operation[requestID.RequestId]
+	if !exists {
+		return derrors.NewNotFoundError("request_id not found")
+	}
+	delete(m.Operation, requestID.RequestId)
+	return nil
 }

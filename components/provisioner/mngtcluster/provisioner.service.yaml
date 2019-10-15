@@ -1,0 +1,17 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: provisioner
+  namespace: __NPH_NAMESPACE
+  labels:
+    cluster: management
+    component: provisioner
+spec:
+  selector:
+    cluster: management
+    component: provisioner
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 8930
+      targetPort: 8930

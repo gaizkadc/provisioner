@@ -1,21 +1,25 @@
 package certmngr
 
 import (
+	"io/ioutil"
+	"os"
+	"path"
+	"strings"
+	"time"
+
 	"github.com/nalej/derrors"
 	"github.com/nalej/provisioner/internal/app/provisioner/k8s"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/rs/zerolog/log"
-	"io/ioutil"
+	v1 "k8s.io/api/core/v1"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
-	"os"
-	"path"
-	"strings"
-	"k8s.io/api/core/v1"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const CertificateName = "tls-client-certificate"
 
 const CertManagerYAMLPrefix = "cert-manager."
 
@@ -29,6 +33,7 @@ const TenantIDEntry = "TENANT_ID"
 const ResourceGroupNameEntry = "RESOURCE_GROUP_NAME"
 const DNSZoneEntry = "DNS_ZONE"
 const ClusterNameEntry = "CLUSTER_NAME"
+const CertificateNameEntry = "CERTIFICATE_NAME"
 
 const AzureCertificateIssuerTemplate = `
 apiVersion: certmanager.k8s.io/v1alpha1
@@ -59,10 +64,10 @@ const CertificateTemplate = `
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: Certificate
 metadata:
- name: ingress-tls
+ name: CERTIFICATE_NAME
  namespace: nalej
 spec:
-  secretName: ingress-tls
+  secretName: CERTIFICATE_NAME
   issuerRef:
     name: letsencrypt
     kind: ClusterIssuer
@@ -78,8 +83,8 @@ spec:
 
 // CertManagerHelper structure to install the cert manager on the freshly installed cluster.
 type CertManagerHelper struct {
-	config     *config.Config
-	Kubernetes *k8s.Kubernetes
+	config             *config.Config
+	Kubernetes         *k8s.Kubernetes
 	kubeConfigFilePath *string
 }
 
@@ -91,7 +96,7 @@ func NewCertManagerHelper(config *config.Config) *CertManagerHelper {
 }
 
 // Connect establishes the connection with the target Kubernetes infrastructure.
-func (cmh *CertManagerHelper) Connect(rawKubeConfig string) derrors.Error{
+func (cmh *CertManagerHelper) Connect(rawKubeConfig string) derrors.Error {
 	kubeConfigFile, err := cmh.writeTempFile(rawKubeConfig, "kc")
 	if err != nil {
 		return err
@@ -121,15 +126,18 @@ func (cmh *CertManagerHelper) InstallCertManager() derrors.Error {
 	}
 	targetFiles := make([]string, 0)
 	for _, file := range fileInfo {
-		if strings.HasPrefix(file.Name(), CertManagerYAMLPrefix) && strings.HasSuffix(file.Name(), ".yaml"){
+		if strings.HasPrefix(file.Name(), CertManagerYAMLPrefix) && strings.HasSuffix(file.Name(), ".yaml") {
 			targetFiles = append(targetFiles, file.Name())
 		}
 	}
 	// Now trigger the install process of all involved YAML
 	var installErr derrors.Error
-	for index := 0; index < len(targetFiles) && installErr == nil; index ++{
+	for index := 0; index < len(targetFiles) && installErr == nil; index++ {
 		installErr = cmh.installCertManagerFile(targetFiles[index])
 	}
+	// We let cert-manager to start itself inside the cluster
+	// TODO: Provide a more accurate way to detect that cert-manager is ready to receive operations
+	time.Sleep(30 * time.Second)
 	return installErr
 }
 
@@ -196,16 +204,16 @@ func (cmh *CertManagerHelper) writeTempFile(content string, prefix string) (*str
 	return &tmpName, nil
 }
 
-// requestCertificate creates the required entities in the cluster to request and issue a
+// RequestCertificateIssuerOnAzure creates the required entities in the cluster to request and issue a
 // certificate.
 func (cmh *CertManagerHelper) RequestCertificateIssuerOnAzure(
 	clientID string, clientSecret string, subscriptionID string, tenantID string,
 	resourceGroupName string,
 	dnsZone string,
-	isProduction bool) derrors.Error{
+	isProduction bool) derrors.Error {
 	// First create the secret that is used to validate the creation
 	err := cmh.createServicePrincipalSecretOnAzure(clientSecret)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	// Then create the Issuer that will generate the secret.
@@ -213,18 +221,18 @@ func (cmh *CertManagerHelper) RequestCertificateIssuerOnAzure(
 	return nil
 }
 
-// createServicePrincipalSecret creates a secret in Kubernetes that enables the cert manager to
+// createServicePrincipalSecretOnAzure creates a secret in Kubernetes that enables the cert manager to
 // validate and process the issuing of a new certificate.
 func (cmh *CertManagerHelper) createServicePrincipalSecretOnAzure(
-	clientSecret string) derrors.Error{
+	clientSecret string) derrors.Error {
 	opaqueSecret := &v1.Secret{
 		TypeMeta: metaV1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:         "k8s-service-principal",
-			Namespace:    "cert-manager",
+			Name:      "k8s-service-principal",
+			Namespace: "cert-manager",
 		},
 		Data: map[string][]byte{
 			"client-secret": []byte(clientSecret),
@@ -232,7 +240,7 @@ func (cmh *CertManagerHelper) createServicePrincipalSecretOnAzure(
 		Type: v1.SecretTypeOpaque,
 	}
 	err := cmh.Kubernetes.Create(opaqueSecret)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	return nil
@@ -243,10 +251,10 @@ func (cmh *CertManagerHelper) createCertificateIssuerOnAzure(
 	clientID string, subscriptionID string, tenantID string,
 	resourceGroupName string,
 	dnsZone string,
-	isProduction bool) derrors.Error{
+	isProduction bool) derrors.Error {
 
 	letsEncryptURL := ProductionLetsEncryptURL
-	if !isProduction{
+	if !isProduction {
 		letsEncryptURL = StagingLetsEncryptURL
 	}
 	// Update the template
@@ -261,14 +269,14 @@ func (cmh *CertManagerHelper) createCertificateIssuerOnAzure(
 
 }
 
-// checkCertificateIssuer waits for the certificate to be issued by the authority
-func (cmh *CertManagerHelper) CheckCertificateIssuer() derrors.Error{
+// CheckCertificateIssuer waits for the certificate to be issued by the authority
+func (cmh *CertManagerHelper) CheckCertificateIssuer() derrors.Error {
 	issued, err := cmh.Kubernetes.MatchCRDStatus(
 		"", "certmanager.k8s.io",
 		"v1alpha1",
 		"clusterissuers", "letsencrypt",
 		[]string{"status", "conditions", "0", "reason"}, "ACMEAccountRegistered")
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	log.Debug().Bool("issued", *issued).Msg("Certificate issuer")
@@ -276,26 +284,26 @@ func (cmh *CertManagerHelper) CheckCertificateIssuer() derrors.Error{
 }
 
 // CreateCertificate creates a new certificate request for a given cluster and dnsZone
-func (cmh *CertManagerHelper) CreateCertificate(clusterName string, dnsZone string) derrors.Error{
+func (cmh *CertManagerHelper) CreateCertificate(clusterName string, dnsZone string) derrors.Error {
 	err := cmh.Kubernetes.CreateNamespaceIfNotExists("nalej")
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	toCreate := strings.ReplaceAll(CertificateTemplate, DNSZoneEntry, dnsZone)
 	toCreate = strings.ReplaceAll(toCreate, ClusterNameEntry, clusterName)
+	toCreate = strings.ReplaceAll(toCreate, CertificateNameEntry, CertificateName)
 	return cmh.Kubernetes.CreateUnstructure(toCreate)
 }
 
-func (cmh *CertManagerHelper) ValidateCertificate() derrors.Error{
+func (cmh *CertManagerHelper) ValidateCertificate() derrors.Error {
 	issued, err := cmh.Kubernetes.MatchCRDStatus(
 		"nalej", "certmanager.k8s.io",
 		"v1alpha1",
-		"certificates", "ingress-tls",
-		[]string{"status", "conditions", "0", "reason"}, "CertIssued")
-	if err != nil{
+		"certificates", CertificateName,
+		[]string{"status", "conditions", "0", "reason"}, "Ready")
+	if err != nil {
 		return err
 	}
 	log.Debug().Bool("issued", *issued).Msg("cluster certificate")
 	return nil
 }
-

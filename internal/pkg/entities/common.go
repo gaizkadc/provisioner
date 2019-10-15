@@ -6,8 +6,8 @@ package entities
 
 import (
 	"github.com/nalej/derrors"
-	"github.com/nalej/grpc-installer-go"
-	"github.com/nalej/grpc-provisioner-go"
+	grpc_installer_go "github.com/nalej/grpc-installer-go"
+	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
 )
 
 // TaskProgress enum with the progress of a given infrastructure operation.
@@ -72,30 +72,28 @@ func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.Prov
 	if or.Type != Provision {
 		return nil, derrors.NewInternalError("cannot create provision cluster response for other type").WithParams(or)
 	}
-
 	kubeConfig := ""
-	var staticIpAddresses *grpc_installer_go.StaticIPAddresses
-
+	var staticIPAddresses *grpc_installer_go.StaticIPAddresses
 	if or.ProvisionResult != nil {
 		kubeConfig = or.ProvisionResult.RawKubeConfig
 		// TODO Add resulting ip addresses
-		staticIpAddresses = &grpc_installer_go.StaticIPAddresses{
+		staticIPAddresses = &grpc_installer_go.StaticIPAddresses{
 			UseStaticIp: true,
-			Ingress:     "",
-			Dns:         "",
-			ZtPlanet:    "",
-			CorednsExt:  "",
-			VpnServer:   "",
+			Ingress:     or.ProvisionResult.StaticIPAddresses.Ingress,
+			Dns:         or.ProvisionResult.StaticIPAddresses.DNS,
+			ZtPlanet:    or.ProvisionResult.StaticIPAddresses.ZtPlanet,
+			CorednsExt:  or.ProvisionResult.StaticIPAddresses.CoreDNSExt,
+			VpnServer:   or.ProvisionResult.StaticIPAddresses.VPNServer,
 		}
 	}
-
 	return &grpc_provisioner_go.ProvisionClusterResponse{
-		RequestId: or.RequestId,
-		State:     ToGRPCProvisionProgress[or.Progress],
+		ClusterName: or.ProvisionResult.ClusterName,
+		RequestId:   or.RequestId,
+		State:       ToGRPCProvisionProgress[or.Progress],
 		// TODO Change proto type
 		ElapsedTime:       0,
 		Error:             or.ErrorMsg,
 		RawKubeConfig:     kubeConfig,
-		StaticIpAddresses: staticIpAddresses,
+		StaticIpAddresses: staticIPAddresses,
 	}, nil
 }

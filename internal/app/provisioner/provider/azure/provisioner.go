@@ -3,6 +3,9 @@ package azure
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/profiles/2019-03-01/network/mgmt/network"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2019-08-01/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
@@ -12,8 +15,6 @@ import (
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 	"github.com/rs/zerolog/log"
-	"sync"
-	"time"
 )
 
 // OsType with the operating system type to be provisioned.
@@ -25,13 +26,16 @@ const ClusterCreateDeadline = 30 * time.Minute
 // ManagementIPAddressNames with the list of addresses to be created in the management cluster.
 var ManagementIPAddressNames = []string{entities.IngressIPAddressName, entities.DNSPublicIPAddress, entities.CoreDNSPublicIPAddress, entities.VPNServerPublicIPAddress}
 
+// ApplicationIPAddressNames with the list of addresses to be created in the application cluster
+var ApplicationIPAddressNames = []string{entities.IngressIPAddressName}
+
 // ProvisionerOperation structure with the methods required to performing a provisioning for a new Kubernetes
 // cluster in Azure.
 type ProvisionerOperation struct {
 	*AzureOperation
-	request entities.ProvisionRequest
-	result  *entities.ProvisionResult
-	config  *config.Config
+	request           entities.ProvisionRequest
+	result            *entities.ProvisionResult
+	config            *config.Config
 	certManagerHelper *certmngr.CertManagerHelper
 }
 
@@ -44,8 +48,10 @@ func NewProvisionerOperation(credentials *AzureCredentials, request entities.Pro
 	return &ProvisionerOperation{
 		AzureOperation: azureOp,
 		request:        request,
-		result:         &entities.ProvisionResult{},
-		config:         config,
+		result: &entities.ProvisionResult{
+			ClusterName: request.ClusterName,
+		},
+		config:            config,
 		certManagerHelper: certmngr.NewCertManagerHelper(config),
 	}, nil
 }
@@ -64,7 +70,7 @@ func (po ProvisionerOperation) Metadata() entities.OperationMetadata {
 	}
 }
 
-func (po ProvisionerOperation) notifyError(err derrors.Error, callback func(requestId string)){
+func (po ProvisionerOperation) notifyError(err derrors.Error, callback func(requestId string)) {
 	log.Error().Str("trace", err.DebugReport()).Msg("operation failed")
 	po.setError(err.Error())
 	callback(po.request.RequestID)
@@ -73,9 +79,10 @@ func (po ProvisionerOperation) notifyError(err derrors.Error, callback func(requ
 // Execute triggers the execution of the operation. The callback function on the execute is expected to be
 // called when the operation finish its execution independently of the status.
 func (po ProvisionerOperation) Execute(callback func(requestId string)) {
-	log.Debug().Str("organizationID", po.request.OrganizationID).Str("clusterID", po.request.ClusterID).Str("clusterName", po.request.ClusterName).Msg("executing provisioning operation")
+	log.Debug().Str("organizationID", po.request.OrganizationID).Str("clusterID", po.request.ClusterID).Str("clusterName", po.request.ClusterName).Str("resultClusterName", po.result.ClusterName).Msg("executing provisioning operation")
 	po.started = time.Now()
 	po.SetProgress(entities.InProgress)
+	po.result.ClusterName = po.request.ClusterName
 
 	createdCluster, err := po.createAKSCluster()
 	if err != nil {
@@ -93,7 +100,7 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 	log.Debug().Msg("IP address have been reserved")
 	po.AddToLog("IP address have been reserved")
 	po.AddToLog("Obtaining DNS zone information")
-	zone, err := po.getDNSZone("nalej.tech")
+	zone, err := po.getDNSZone(po.request.AzureOptions.DNSZoneName)
 	if err != nil {
 		po.notifyError(err, callback)
 		return
@@ -105,14 +112,17 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 		po.notifyError(err, callback)
 		return
 	}
+
 	if po.request.IsManagementCluster {
 		err = po.createManagementDNSEntries(*dnsZoneResourceGroupName)
-		if err != nil {
-			po.notifyError(err, callback)
-			return
-		}
-		po.AddToLog("DNS entries have been defined")
+	} else {
+		err = po.createApplicationDNSEntries(*dnsZoneResourceGroupName)
 	}
+	if err != nil {
+		po.notifyError(err, callback)
+		return
+	}
+	po.AddToLog("DNS entries have been defined")
 
 	err = po.installCertManager()
 	if err != nil {
@@ -129,19 +139,19 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 	}
 	po.AddToLog("certificate issuer requested")
 	err = po.certManagerHelper.CheckCertificateIssuer()
-	if err != nil{
+	if err != nil {
 		po.notifyError(err, callback)
 		return
 	}
 	log.Debug().Msg("certificate issuer available")
 	err = po.requestCertificate()
-	if err != nil{
+	if err != nil {
 		po.notifyError(err, callback)
 		return
 	}
 	po.AddToLog("validating cluster certificate")
 	err = po.certManagerHelper.ValidateCertificate()
-	if err != nil{
+	if err != nil {
 		po.notifyError(err, callback)
 		return
 	}
@@ -171,11 +181,6 @@ func (po ProvisionerOperation) Result() entities.OperationResult {
 		elapsed = time.Now().Sub(po.started).String()
 	}
 
-	var provisionResult *entities.ProvisionResult
-	if po.taskProgress == entities.Finished {
-		provisionResult = po.result
-	}
-
 	// TODO Fix with the final result
 	return entities.OperationResult{
 		RequestId:       po.request.RequestID,
@@ -183,7 +188,7 @@ func (po ProvisionerOperation) Result() entities.OperationResult {
 		Progress:        po.taskProgress,
 		ElapsedTime:     elapsed,
 		ErrorMsg:        po.errorMsg,
-		ProvisionResult: provisionResult,
+		ProvisionResult: po.result,
 	}
 }
 
@@ -313,7 +318,14 @@ func (po ProvisionerOperation) createAKSCluster() (*containerservice.ManagedClus
 	}
 	ctx, cancel := common.GetContext()
 	defer cancel()
-	resourceName := po.getResourceName(po.request.ClusterID, po.request.ClusterName)
+
+	var resourceName string
+	if po.request.IsManagementCluster {
+		resourceName = po.getResourceName(po.request.ClusterID, po.request.ClusterName)
+	} else {
+		resourceName = po.getClusterName(po.request.ClusterName)
+	}
+
 	responseFuture, createErr := clusterClient.CreateOrUpdate(ctx, po.request.AzureOptions.ResourceGroup, resourceName, *parameters)
 	if createErr != nil {
 		return nil, derrors.AsError(createErr, "cannot create AKS cluster")
@@ -366,16 +378,18 @@ func (po ProvisionerOperation) createServicePrincipalForRBAC(requestID string) (
 // createAssociatedIPAddresses creates a set of publicly exposed IP addresses for the cluster.
 func (po ProvisionerOperation) createAssociatedIPAddresses(nodeResourceGroup string) derrors.Error {
 	po.AddToLog("Reserving IP addresses")
-	if !po.request.IsManagementCluster {
-		// TODO Check the requirements of the app cluster and adapt the gRPC protos.
-		return derrors.NewUnimplementedError("application cluster ip address reservation not supported")
+	var IPAddressPool []string
+	if po.request.IsManagementCluster {
+		IPAddressPool = ManagementIPAddressNames
+	} else {
+		IPAddressPool = ApplicationIPAddressNames
 	}
 
-	responseCh := make(chan ParallelIPCreateResponse, len(ManagementIPAddressNames))
+	responseCh := make(chan ParallelIPCreateResponse, len(IPAddressPool))
 	var wg sync.WaitGroup
-	wg.Add(len(ManagementIPAddressNames))
+	wg.Add(len(IPAddressPool))
 
-	for _, addressName := range ManagementIPAddressNames {
+	for _, addressName := range IPAddressPool {
 		go po.createIPInParallel(responseCh, &wg, nodeResourceGroup, addressName, po.request.Zone)
 	}
 
@@ -445,18 +459,37 @@ func (po ProvisionerOperation) createManagementDNSEntries(resourceGroupName stri
 	return nil
 }
 
+func (po ProvisionerOperation) createApplicationDNSEntries(resourceGroupName string) derrors.Error {
+	dnsClusterRoot := po.getClusterName(po.request.ClusterName)
+
+	toAdd := make(map[string]string, 0)
+	// Ingress entries name.dnsZone and *.name.dnsZone
+	toAdd[dnsClusterRoot] = po.result.StaticIPAddresses.Ingress
+	toAdd[fmt.Sprintf("*.%s", dnsClusterRoot)] = po.result.StaticIPAddresses.Ingress
+
+	for dnsRecordName, IP := range toAdd {
+		entry, err := po.createDNSARecord(resourceGroupName, dnsRecordName, po.request.AzureOptions.DNSZoneName, IP)
+		if err != nil {
+			return err
+		}
+		po.AddToLog(fmt.Sprintf("DNS entry created %s", *entry.Fqdn))
+	}
+
+	return nil
+}
+
 // installCertManager triggers the installation of the cert manager component in charge of providing
 // certificates.
 func (po ProvisionerOperation) installCertManager() derrors.Error {
 	po.AddToLog("installing cert manager")
 	err := po.certManagerHelper.Connect(po.result.RawKubeConfig)
-	if err !=nil{
+	if err != nil {
 		return err
 	}
 	return po.certManagerHelper.InstallCertManager()
 }
 
-func (po ProvisionerOperation) requestCertificateIssuer(dnsResourceGroupName string) derrors.Error{
+func (po ProvisionerOperation) requestCertificateIssuer(dnsResourceGroupName string) derrors.Error {
 	po.AddToLog("requesting certificate")
 	return po.certManagerHelper.RequestCertificateIssuerOnAzure(
 		po.credentials.ClientId, po.credentials.ClientSecret,
@@ -465,7 +498,7 @@ func (po ProvisionerOperation) requestCertificateIssuer(dnsResourceGroupName str
 		po.request.AzureOptions.DNSZoneName, po.request.IsProduction)
 }
 
-func (po ProvisionerOperation) requestCertificate() derrors.Error{
+func (po ProvisionerOperation) requestCertificate() derrors.Error {
 	return po.certManagerHelper.CreateCertificate(
 		po.getClusterName(po.request.ClusterName), po.request.AzureOptions.DNSZoneName)
 }

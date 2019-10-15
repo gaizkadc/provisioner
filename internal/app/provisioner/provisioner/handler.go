@@ -5,8 +5,8 @@
 package provisioner
 
 import (
-	"github.com/nalej/grpc-common-go"
-	"github.com/nalej/grpc-provisioner-go"
+	grpc_common_go "github.com/nalej/grpc-common-go"
+	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/grpc-utils/pkg/conversions"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 	"github.com/rs/zerolog/log"
@@ -33,10 +33,14 @@ func (h *Handler) ProvisionCluster(ctx context.Context, request *grpc_provisione
 
 // CheckProgress gets an updated state of a provisioning request.
 func (h *Handler) CheckProgress(ctx context.Context, requestID *grpc_common_go.RequestId) (*grpc_provisioner_go.ProvisionClusterResponse, error) {
-	panic("implement me")
+	return h.Manager.CheckProgress(requestID)
 }
 
 // RemoveProvision cancels an ongoing provisioning or removes the information of an already processed provision operation.
 func (h *Handler) RemoveProvision(ctx context.Context, requestID *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
-	panic("implement me")
+	err := h.Manager.RemoveProvision(requestID)
+	if err != nil{
+		return nil, err
+	}
+	return &grpc_common_go.Success{}, nil
 }
