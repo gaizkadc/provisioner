@@ -5,15 +5,16 @@
 package provisioner
 
 import (
+	"sync"
+
 	"github.com/nalej/derrors"
-	"github.com/nalej/grpc-common-go"
-	"github.com/nalej/grpc-provisioner-go"
+	grpc_common_go "github.com/nalej/grpc-common-go"
+	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 	"github.com/nalej/provisioner/internal/pkg/workflow"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 type Manager struct {
@@ -61,6 +62,7 @@ func (m *Manager) ProvisionCluster(request *grpc_provisioner_go.ProvisionCluster
 		State:       grpc_provisioner_go.ProvisionProgress_INIT,
 		ElapsedTime: 0,
 		Error:       "",
+		ClusterName: request.ClusterName,
 	}
 	return response, nil
 }

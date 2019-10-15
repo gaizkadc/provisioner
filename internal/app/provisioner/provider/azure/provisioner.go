@@ -46,9 +46,11 @@ func NewProvisionerOperation(credentials *AzureCredentials, request entities.Pro
 		return nil, err
 	}
 	return &ProvisionerOperation{
-		AzureOperation:    azureOp,
-		request:           request,
-		result:            &entities.ProvisionResult{},
+		AzureOperation: azureOp,
+		request:        request,
+		result: &entities.ProvisionResult{
+			ClusterName: request.ClusterName,
+		},
 		config:            config,
 		certManagerHelper: certmngr.NewCertManagerHelper(config),
 	}, nil
@@ -77,9 +79,10 @@ func (po ProvisionerOperation) notifyError(err derrors.Error, callback func(requ
 // Execute triggers the execution of the operation. The callback function on the execute is expected to be
 // called when the operation finish its execution independently of the status.
 func (po ProvisionerOperation) Execute(callback func(requestId string)) {
-	log.Debug().Str("organizationID", po.request.OrganizationID).Str("clusterID", po.request.ClusterID).Str("clusterName", po.request.ClusterName).Msg("executing provisioning operation")
+	log.Debug().Str("organizationID", po.request.OrganizationID).Str("clusterID", po.request.ClusterID).Str("clusterName", po.request.ClusterName).Str("resultClusterName", po.result.ClusterName).Msg("executing provisioning operation")
 	po.started = time.Now()
 	po.SetProgress(entities.InProgress)
+	po.result.ClusterName = po.request.ClusterName
 
 	createdCluster, err := po.createAKSCluster()
 	if err != nil {
@@ -178,11 +181,6 @@ func (po ProvisionerOperation) Result() entities.OperationResult {
 		elapsed = time.Now().Sub(po.started).String()
 	}
 
-	var provisionResult *entities.ProvisionResult
-	if po.taskProgress == entities.Finished {
-		provisionResult = po.result
-	}
-
 	// TODO Fix with the final result
 	return entities.OperationResult{
 		RequestId:       po.request.RequestID,
@@ -190,7 +188,7 @@ func (po ProvisionerOperation) Result() entities.OperationResult {
 		Progress:        po.taskProgress,
 		ElapsedTime:     elapsed,
 		ErrorMsg:        po.errorMsg,
-		ProvisionResult: provisionResult,
+		ProvisionResult: po.result,
 	}
 }
 

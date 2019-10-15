@@ -6,8 +6,8 @@ package entities
 
 import (
 	"github.com/nalej/derrors"
-	"github.com/nalej/grpc-installer-go"
-	"github.com/nalej/grpc-provisioner-go"
+	grpc_installer_go "github.com/nalej/grpc-installer-go"
+	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
 	"github.com/rs/zerolog/log"
 )
 
@@ -98,7 +98,7 @@ func NewProvisionRequest(request *grpc_provisioner_go.ProvisionClusterRequest) P
 		NodeType:            request.NodeType,
 		Zone:                request.Zone,
 		IsManagementCluster: request.IsManagementCluster,
-		IsProduction: request.IsProduction,
+		IsProduction:        request.IsProduction,
 		AzureOptions:        NewAzureOptions(request.AzureOptions),
 	}
 }
@@ -122,6 +122,8 @@ type StaticIPAddresses struct {
 
 // ProvisionResult with the result of a successful provisioning.
 type ProvisionResult struct {
+	// ClusterName with the name of the cluster
+	ClusterName string
 	// RawKubeConfig contains the contents of the resulting kubeconfig files
 	RawKubeConfig string
 	// StaticIPAddresses with the generated addresses.

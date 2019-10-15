@@ -311,7 +311,7 @@ func (ao *AzureOperation) getClusterName(clusterName string) string {
 }
 
 func (ao *AzureOperation) getResourceName(clusterID string, clusterName string) string {
-	return fmt.Sprintf("%s.%s", clusterID, ao.getClusterName(clusterName))
+	return fmt.Sprintf("%s-%s", clusterID, ao.getClusterName(clusterName))
 }
 
 // createIPAddress reserves an IP address.

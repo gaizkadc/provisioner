@@ -16,7 +16,7 @@
 
 [[constraint]]
     name="github.com/nalej/grpc-provisioner-go"
-    version="=v0.0.4"
+    version="=v0.0.5"
 
 [[override]]
   source = "https://github.com/fsnotify/fsnotify/archive/v1.4.7.tar.gz"
