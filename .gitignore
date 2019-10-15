@@ -4,3 +4,4 @@ bazel-*
 bin/*
 vendor
 vendor/*
+temp
