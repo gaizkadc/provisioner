@@ -156,6 +156,16 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 		return
 	}
 
+	if po.request.IsManagementCluster {
+		po.AddToLog("Adding CA certificate")
+		err = po.certManagerHelper.CreateCASecret(po.request.IsProduction)
+		if err != nil {
+			po.notifyError(err, callback)
+			return
+		}
+		po.AddToLog("Added CA certificate as a secret")
+	}
+
 	log.Debug().Msg("provisioning finished")
 	po.elapsedTime = time.Now().Sub(po.started).String()
 	po.SetProgress(entities.Finished)

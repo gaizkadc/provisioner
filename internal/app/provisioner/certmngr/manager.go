@@ -1,6 +1,7 @@
 package certmngr
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -19,22 +20,52 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-const CertificateName = "tls-client-certificate"
+//ClientCertificate is the name used by both the Certificate resource and the Secret for the TLS client certificate
+const ClientCertificate = "tls-client-certificate"
 
+//CACertificate is the name used by the Secret resource for the TLS CA Certificate
+const CACertificate = "ca-certificate"
+
+//CertManagerYAMLPrefix is the prefix used by the cert-manager K8S resource files
 const CertManagerYAMLPrefix = "cert-manager."
 
+//ProductionLetsEncryptURL to register a Let's encrypt account in their production environment
 const ProductionLetsEncryptURL = "https://acme-v02.api.letsencrypt.org/directory"
+
+//ProductionLetsEncryptCA is the filename that contains the CA certificate for letsencrypt in their production environment
+const ProductionLetsEncryptCA = "letsencrypt_prod.pem"
+
+//StagingLetsEncryptURL to register a Let's encrypt account in their staging environment
 const StagingLetsEncryptURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 
-const LetsEncryptURLEntry = "LETS_ENCRYPT_URL"
-const ClientIDEntry = "CLIENT_ID"
-const SubscritionIDEntry = "SUBSCRIPTION_ID"
-const TenantIDEntry = "TENANT_ID"
-const ResourceGroupNameEntry = "RESOURCE_GROUP_NAME"
-const DNSZoneEntry = "DNS_ZONE"
-const ClusterNameEntry = "CLUSTER_NAME"
-const CertificateNameEntry = "CERTIFICATE_NAME"
+//StagingLetsEncryptCA is the filename that contains the CA certificate for letsencrypt in their staging environment
+const StagingLetsEncryptCA = "letsencrypt_prod.pem"
 
+//LetsEncryptURLEntry is the placeholder to replace the Let's encrypt URL
+const LetsEncryptURLEntry = "LETS_ENCRYPT_URL"
+
+//ClientIDEntry is the placeholder to replace the Azure Service Principal Client ID
+const ClientIDEntry = "CLIENT_ID"
+
+//SubscriptionIDEntry is the placeholder to replace the Azure Subscription ID
+const SubscriptionIDEntry = "SUBSCRIPTION_ID"
+
+//TenantIDEntry is the placeholder to replace the Azure AD Tenant ID
+const TenantIDEntry = "TENANT_ID"
+
+//ResourceGroupNameEntry is the placeholder for the DNS Resource Group name
+const ResourceGroupNameEntry = "RESOURCE_GROUP_NAME"
+
+//DNSZoneEntry is the placeholder for the DNS Zone name
+const DNSZoneEntry = "DNS_ZONE"
+
+//ClusterNameEntry is the placeholder fot the cluster name
+const ClusterNameEntry = "CLUSTER_NAME"
+
+//ClientCertificateEntry is the placeholder for the TLS client certificate name
+const ClientCertificateEntry = "CLIENT_CERTIFICATE_NAME"
+
+//AzureCertificateIssuerTemplate to create a ClusterIssuer resource for Azure
 const AzureCertificateIssuerTemplate = `
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
@@ -60,14 +91,15 @@ spec:
             hostedZoneName: DNS_ZONE
 `
 
+//CertificateTemplate to create a Certificate resource
 const CertificateTemplate = `
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: Certificate
 metadata:
- name: CERTIFICATE_NAME
+ name: CLIENT_CERTIFICATE_NAME
  namespace: nalej
 spec:
-  secretName: CERTIFICATE_NAME
+  secretName: CLIENT_CERTIFICATE_NAME
   issuerRef:
     name: letsencrypt
     kind: ClusterIssuer
@@ -260,7 +292,7 @@ func (cmh *CertManagerHelper) createCertificateIssuerOnAzure(
 	// Update the template
 	toCreate := strings.ReplaceAll(AzureCertificateIssuerTemplate, LetsEncryptURLEntry, letsEncryptURL)
 	toCreate = strings.ReplaceAll(toCreate, ClientIDEntry, clientID)
-	toCreate = strings.ReplaceAll(toCreate, SubscritionIDEntry, subscriptionID)
+	toCreate = strings.ReplaceAll(toCreate, SubscriptionIDEntry, subscriptionID)
 	toCreate = strings.ReplaceAll(toCreate, TenantIDEntry, tenantID)
 	toCreate = strings.ReplaceAll(toCreate, ResourceGroupNameEntry, resourceGroupName)
 	toCreate = strings.ReplaceAll(toCreate, DNSZoneEntry, dnsZone)
@@ -291,19 +323,69 @@ func (cmh *CertManagerHelper) CreateCertificate(clusterName string, dnsZone stri
 	}
 	toCreate := strings.ReplaceAll(CertificateTemplate, DNSZoneEntry, dnsZone)
 	toCreate = strings.ReplaceAll(toCreate, ClusterNameEntry, clusterName)
-	toCreate = strings.ReplaceAll(toCreate, CertificateNameEntry, CertificateName)
+	toCreate = strings.ReplaceAll(toCreate, ClientCertificateEntry, ClientCertificate)
 	return cmh.Kubernetes.CreateUnstructure(toCreate)
 }
 
+//ValidateCertificate validates if a certificate has been issued successfully
 func (cmh *CertManagerHelper) ValidateCertificate() derrors.Error {
 	issued, err := cmh.Kubernetes.MatchCRDStatus(
 		"nalej", "certmanager.k8s.io",
 		"v1alpha1",
-		"certificates", CertificateName,
+		"certificates", ClientCertificate,
 		[]string{"status", "conditions", "0", "reason"}, "Ready")
 	if err != nil {
 		return err
 	}
 	log.Debug().Bool("issued", *issued).Msg("cluster certificate")
+	return nil
+}
+
+func (cmh *CertManagerHelper) readCAfile(isProduction bool) ([]byte, derrors.Error) {
+	var caFileName string
+	if isProduction == true {
+		caFileName = ProductionLetsEncryptCA
+	} else {
+		caFileName = StagingLetsEncryptCA
+	}
+	caFilePath := fmt.Sprintf("%s/ca/%s", cmh.config.ResourcesPath, caFileName)
+	caContents, err := ioutil.ReadFile(caFilePath)
+	if err != nil {
+		derrors.NewInternalError("cannot read CA certificate file", err)
+	}
+	return caContents, nil
+}
+
+//CreateCASecret creates the Secret K8S resource to store the CA certificate
+func (cmh *CertManagerHelper) CreateCASecret(isProduction bool) derrors.Error {
+	caContents, err := cmh.readCAfile(isProduction)
+	if err != nil {
+		return err
+	}
+
+	err = cmh.Kubernetes.CreateNamespaceIfNotExists("nalej")
+	if err != nil {
+		return err
+	}
+
+	opaqueSecret := &v1.Secret{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metaV1.ObjectMeta{
+			Name:      CACertificate,
+			Namespace: "nalej",
+		},
+		Data: map[string][]byte{
+			"ca.crt": caContents,
+		},
+		Type: v1.SecretTypeOpaque,
+	}
+	err = cmh.Kubernetes.Create(opaqueSecret)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
