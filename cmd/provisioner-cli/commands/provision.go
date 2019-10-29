@@ -1,10 +1,10 @@
 package commands
 
 import (
-	grpc_infrastructure_go "github.com/nalej/grpc-infrastructure-go"
-	grpc_installer_go "github.com/nalej/grpc-installer-go"
-	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
-	provisioner_cli "github.com/nalej/provisioner/internal/app/provisioner-cli"
+	"github.com/nalej/grpc-infrastructure-go"
+	"github.com/nalej/grpc-installer-go"
+	"github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/provisioner/internal/app/provisioner-cli"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
