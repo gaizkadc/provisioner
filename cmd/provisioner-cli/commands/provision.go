@@ -1,9 +1,9 @@
 package commands
 
 import (
-	"github.com/nalej/grpc-infrastructure-go"
-	"github.com/nalej/grpc-installer-go"
-	"github.com/nalej/grpc-provisioner-go"
+	grpc_infrastructure_go "github.com/nalej/grpc-infrastructure-go"
+	grpc_installer_go "github.com/nalej/grpc-installer-go"
+	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
 	provisioner_cli "github.com/nalej/provisioner/internal/app/provisioner-cli"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/rs/zerolog/log"
@@ -79,7 +79,7 @@ func init() {
 	provisionCmd.Flags().StringVar(&provisionRequest.ClusterName, "name", "",
 		"Name of the cluster")
 	provisionCmd.MarkFlagRequired("name")
-	provisionCmd.Flags().StringVar(&provisionRequest.KubernetesVersion, "kubernetesVersion", "1.13.9",
+	provisionCmd.Flags().StringVar(&provisionRequest.KubernetesVersion, "kubernetesVersion", "1.13.11",
 		"Kubernetes version to be installed. The available versions depend on the target platform.")
 	provisionCmd.Flags().Int64Var(&provisionRequest.NumNodes, "numNodes", 3,
 		"Number of nodes in the cluster")
