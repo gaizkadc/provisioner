@@ -50,6 +50,7 @@ func NewProvisionerOperation(credentials *AzureCredentials, request entities.Pro
 		request:        request,
 		result: &entities.ProvisionResult{
 			ClusterName: request.ClusterName,
+			Hostname:    fmt.Sprintf("%s.%s", request.ClusterName, request.AzureOptions.DNSZoneName),
 		},
 		config:            config,
 		certManagerHelper: certmngr.NewCertManagerHelper(config),
@@ -82,7 +83,6 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 	log.Debug().Str("organizationID", po.request.OrganizationID).Str("clusterID", po.request.ClusterID).Str("clusterName", po.request.ClusterName).Str("resultClusterName", po.result.ClusterName).Msg("executing provisioning operation")
 	po.started = time.Now()
 	po.SetProgress(entities.InProgress)
-	po.result.ClusterName = po.request.ClusterName
 
 	createdCluster, err := po.createAKSCluster()
 	if err != nil {

@@ -124,6 +124,8 @@ type StaticIPAddresses struct {
 type ProvisionResult struct {
 	// ClusterName with the name of the cluster
 	ClusterName string
+	// Hostname with the full hostname of the cluster
+	Hostname string
 	// RawKubeConfig contains the contents of the resulting kubeconfig files
 	RawKubeConfig string
 	// StaticIPAddresses with the generated addresses.
