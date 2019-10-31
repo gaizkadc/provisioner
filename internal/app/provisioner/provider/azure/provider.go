@@ -10,6 +10,7 @@ import (
 	providerEntities "github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
+	"github.com/rs/zerolog/log"
 )
 
 type AzureInfrastructureProvider struct {
@@ -23,6 +24,8 @@ func NewAzureInfrastructureProvider(credentials *grpc_provisioner_go.AzureCreden
 }
 
 func (aip *AzureInfrastructureProvider) Provision(request entities.ProvisionRequest) (entities.InfrastructureOperation, derrors.Error) {
+	// TODO remove this log entry
+	log.Debug().Interface("credentials", aip.credentials).Interface("request", request).Msg("creating provision operation")
 	return NewProvisionerOperation(aip.credentials, request, aip.config)
 }
 

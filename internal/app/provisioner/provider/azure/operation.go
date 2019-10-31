@@ -37,7 +37,7 @@ type AzureOperation struct {
 	log                  []string
 	taskProgress         entities.TaskProgress
 	errorMsg             string
-	elapsedTime          string
+	elapsedTime          int64
 }
 
 func NewAzureOperation(credentials *AzureCredentials) (*AzureOperation, derrors.Error) {
@@ -82,7 +82,7 @@ func (ao *AzureOperation) SetProgress(progress entities.TaskProgress) {
 
 func (ao *AzureOperation) setError(errMsg string) {
 	log.Debug().Str("previous", entities.TaskProgressToString[ao.taskProgress]).Str("error", errMsg).Msg("setting error")
-	ao.elapsedTime = time.Now().Sub(ao.started).String()
+	ao.elapsedTime = time.Now().Sub(ao.started).Nanoseconds()
 	ao.taskProgress = entities.Error
 	ao.errorMsg = errMsg
 }
