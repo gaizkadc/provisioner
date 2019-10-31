@@ -262,12 +262,12 @@
   version = "v0.0.29"
 
 [[projects]]
-  digest = "1:9735e5aaf97f27c146896e004cdd6041df648de3e11406009ecb62db6602b0d7"
+  digest = "1:e2a1f638b0a77566503d53d8598df486e1ea9e1e477fc20a0149acd70393ecf3"
   name = "github.com/nalej/grpc-provisioner-go"
   packages = ["."]
   pruneopts = ""
-  revision = "77101da2db4295b60f6edd2c776897287e99893a"
-  version = "v0.0.5"
+  revision = "8c9f264338f972c33157218faa293fa807ce1972"
+  version = "v0.0.6"
 
 [[projects]]
   digest = "1:347aace88c837e2b1b65a7c603e1b74066e3ad9c26343a2001649e3a2354591b"

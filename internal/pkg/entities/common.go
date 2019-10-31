@@ -88,6 +88,7 @@ func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.Prov
 	}
 	return &grpc_provisioner_go.ProvisionClusterResponse{
 		ClusterName: or.ProvisionResult.ClusterName,
+		Hostname:    or.ProvisionResult.Hostname,
 		RequestId:   or.RequestId,
 		State:       ToGRPCProvisionProgress[or.Progress],
 		// TODO Change proto type
