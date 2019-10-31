@@ -39,7 +39,7 @@ const ProductionLetsEncryptCA = "letsencrypt_prod.pem"
 const StagingLetsEncryptURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
 
 //StagingLetsEncryptCA is the filename that contains the CA certificate for letsencrypt in their staging environment
-const StagingLetsEncryptCA = "letsencrypt_prod.pem"
+const StagingLetsEncryptCA = "letsencrypt_staging.pem"
 
 //LetsEncryptURLEntry is the placeholder to replace the Let's encrypt URL
 const LetsEncryptURLEntry = "LETS_ENCRYPT_URL"
