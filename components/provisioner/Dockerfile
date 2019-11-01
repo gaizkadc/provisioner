@@ -2,7 +2,8 @@
 # Copyright (C) 2018 Nalej Group - All Rights Reserved
 #
 
-FROM alpine:3.9.4
+#FROM alpine:3.9.4
+FROM debian:stretch
 
 # Now just add the binary\
 RUN mkdir -p /nalej/resources
