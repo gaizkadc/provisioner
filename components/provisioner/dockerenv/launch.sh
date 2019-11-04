@@ -3,4 +3,4 @@
 nslookup login.microsoftonline.com
 nslookup management.azure.com
 
-GODEBUG=netdns=cgo+2 /nalej/provisioner "$@"
+GODEBUG=netdns=2 /nalej/provisioner "$@"
