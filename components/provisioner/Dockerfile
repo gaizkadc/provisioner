@@ -10,7 +10,10 @@ RUN mkdir -p /nalej/resources
 # Copy the resources
 COPY dockerenv/cert-manager*.yaml /nalej/resources/
 
+RUN apt-get update -y && apt-get install dnsutils -y
+
 # Now just add the binary
 COPY provisioner /nalej/
+COPY dockerenv/launch.sh /nalej/
 
-ENTRYPOINT ["./nalej/provisioner"]
+ENTRYPOINT ["./nalej/launch.sh"]

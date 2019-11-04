@@ -45,7 +45,7 @@ else
 endif
 	@echo ">>> Finished building binaries for your OS"
 
-build-custom: GOBUILDFLAGS=CGO_ENABLED=0 GOOS=${BUILDOS} GOARCH=${BUILDARCH}
+build-custom: GOBUILDFLAGS=GOOS=${BUILDOS} GOARCH=${BUILDARCH}
 build-custom: DISTPATH=${TARGET}/${BUILDOS}_${BUILDARCH}
 build-custom:
 	@echo ">>> Building binaries for ${BUILDOS} ${BUILDARCH}"
