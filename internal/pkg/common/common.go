@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const DefaultTimeout = 3 * time.Minute
+const DefaultTimeout = time.Minute
 
 // GetContext returns a context with a default timeout for internal communications. Notice that the context does not
 // have any security related information attached to it.
