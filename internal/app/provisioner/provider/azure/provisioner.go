@@ -167,7 +167,7 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 	}
 
 	log.Debug().Msg("provisioning finished")
-	po.elapsedTime = time.Now().Sub(po.started).String()
+	po.elapsedTime = time.Now().Sub(po.started).Nanoseconds()
 	po.SetProgress(entities.Finished)
 	callback(po.request.RequestID)
 	return
@@ -186,9 +186,9 @@ func (po ProvisionerOperation) setResultIP(addressName string, IP *network.Publi
 // Result returns the operation result if this operation is successful
 func (po ProvisionerOperation) Result() entities.OperationResult {
 	elapsed := po.elapsedTime
-	if po.elapsedTime == "" && po.taskProgress == entities.InProgress {
+	if po.elapsedTime == 0 && po.taskProgress == entities.InProgress {
 		// If the operation is in progress, retrieved the ongoing time.
-		elapsed = time.Now().Sub(po.started).String()
+		elapsed = time.Now().Sub(po.started).Nanoseconds()
 	}
 
 	// TODO Fix with the final result
@@ -335,10 +335,10 @@ func (po ProvisionerOperation) createAKSCluster() (*containerservice.ManagedClus
 	} else {
 		resourceName = po.getClusterName(po.request.ClusterName)
 	}
-
+	log.Debug().Str("resourceGroupName", po.request.AzureOptions.ResourceGroup).Str("resourceName", resourceName).Msg("CreateOrUpdate params")
 	responseFuture, createErr := clusterClient.CreateOrUpdate(ctx, po.request.AzureOptions.ResourceGroup, resourceName, *parameters)
 	if createErr != nil {
-		return nil, derrors.AsError(createErr, "cannot create AKS cluster")
+		return nil, derrors.NewInternalError("cannot create AKS cluster", createErr).WithParams(po.request)
 	}
 	po.AddToLog("waiting for AKS to be created")
 	futureContext, cancelFuture := context.WithTimeout(context.Background(), ClusterCreateDeadline)

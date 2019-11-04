@@ -61,7 +61,7 @@ type OperationResult struct {
 	// Progress with the state of the operation.
 	Progress TaskProgress
 	// ElapsedTime with the time since the operation was launched.
-	ElapsedTime string
+	ElapsedTime int64
 	// ErrorMsg contains a description of the error in case the operation failed.
 	ErrorMsg string
 	// ProvisionResult with the results of a provisioning operation.
@@ -91,8 +91,7 @@ func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.Prov
 		Hostname:    or.ProvisionResult.Hostname,
 		RequestId:   or.RequestId,
 		State:       ToGRPCProvisionProgress[or.Progress],
-		// TODO Change proto type
-		ElapsedTime:       0,
+		ElapsedTime:       or.ElapsedTime,
 		Error:             or.ErrorMsg,
 		RawKubeConfig:     kubeConfig,
 		StaticIpAddresses: staticIPAddresses,

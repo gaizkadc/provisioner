@@ -28,6 +28,7 @@ func (h *Handler) ProvisionCluster(ctx context.Context, request *grpc_provisione
 		log.Warn().Str("trace", err.DebugReport()).Msg(err.Error())
 		return nil, conversions.ToGRPCError(err)
 	}
+	log.Debug().Interface("request", request).Msg("provision cluster")
 	return h.Manager.ProvisionCluster(request)
 }
 

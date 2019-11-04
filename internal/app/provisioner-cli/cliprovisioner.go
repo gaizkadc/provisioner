@@ -90,7 +90,7 @@ func (cp *CLIProvisioner) printJSONResult(result entities.OperationResult) {
 		Str("request_id", result.RequestId).
 		Str("type", entities.ToOperationTypeString[result.Type]).
 		Str("progress", entities.TaskProgressToString[result.Progress]).
-		Str("elapsed_time", result.ElapsedTime).
+		Str("elapsed_time", time.Duration(result.ElapsedTime).String()).
 		Logger()
 
 	if result.Progress == entities.Error {
@@ -115,7 +115,7 @@ func (cp *CLIProvisioner) printTableResult(result entities.OperationResult) {
 	writer.Println("Request:\t", result.RequestId)
 	writer.Println("Type:\t", entities.ToOperationTypeString[result.Type])
 	writer.Println("Progress:\t", entities.TaskProgressToString[result.Progress])
-	writer.Println("Elapsed Time:\t", result.ElapsedTime)
+	writer.Println("Elapsed Time:\t", time.Duration(result.ElapsedTime).String())
 	if result.Progress == entities.Error {
 		writer.Println("Error:\t", result.ErrorMsg)
 	} else {
