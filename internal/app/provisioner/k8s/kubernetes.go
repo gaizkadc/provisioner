@@ -1,5 +1,17 @@
 /*
- * Copyright (C) 2018 Nalej - All Rights Reserved
+ * Copyright 2019 Nalej
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package k8s
@@ -19,13 +31,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"github.com/tidwall/gjson"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
-	"github.com/tidwall/gjson"
 	"net"
 )
 
@@ -150,7 +162,7 @@ func (k *Kubernetes) CreateNamespaceIfNotExists(name string) derrors.Error {
 	return nil
 }
 
-func (k *Kubernetes) CreateUnstructure(toCreate string) derrors.Error{
+func (k *Kubernetes) CreateUnstructure(toCreate string) derrors.Error {
 	reader := strings.NewReader(toCreate)
 	// We use a YAML decoder to decode the resource straight into an
 	// unstructured object. This way, we can deal with resources that are
@@ -279,9 +291,9 @@ func getKind(obj runtime.Object) (schema.GroupVersionKind, derrors.Error) {
 }
 
 // MatchUnstructureField matches a json path as defined by the gjson package with a given expected value.
-func (k * Kubernetes) MatchUnstructuredField(obj *unstructured.Unstructured, key []string, expected string) bool{
+func (k *Kubernetes) MatchUnstructuredField(obj *unstructured.Unstructured, key []string, expected string) bool {
 	json, err := obj.MarshalJSON()
-	if err != nil{
+	if err != nil {
 		return false
 	}
 	result := gjson.Get(string(json), strings.Join(key, "."))
@@ -289,7 +301,7 @@ func (k * Kubernetes) MatchUnstructuredField(obj *unstructured.Unstructured, key
 }
 
 // MatchCRDStatus retrieves a non-namespaced CRD, and checks if a set of keys matches a given value.
-func (k *Kubernetes) MatchCRDStatus(namespace string, group string, version string, resource string, name string, key []string, expected string) (*bool, derrors.Error){
+func (k *Kubernetes) MatchCRDStatus(namespace string, group string, version string, resource string, name string, key []string, expected string) (*bool, derrors.Error) {
 	resourceRequest := schema.GroupVersionResource{
 		Group:    group,
 		Version:  version,
@@ -297,26 +309,26 @@ func (k *Kubernetes) MatchCRDStatus(namespace string, group string, version stri
 	}
 
 	var client dynamic.ResourceInterface
-	if namespace == ""{
+	if namespace == "" {
 		client = k.dynClient.Resource(resourceRequest)
-	}else{
+	} else {
 		client = k.dynClient.Resource(resourceRequest).Namespace(namespace)
 	}
 	numRetries := 36
 	issued := false
-	for retry:=0; retry < numRetries && !issued; retry ++{
+	for retry := 0; retry < numRetries && !issued; retry++ {
 		unstructure, err := client.Get(name, metaV1.GetOptions{})
-		if err != nil{
+		if err != nil {
 			log.Warn().Err(err).Msg("unable to retrieve resource")
-		}else{
+		} else {
 			log.Debug().Interface("raw", unstructure.Object).Msg("resource retrieved")
 			matches := k.MatchUnstructuredField(unstructure, key, expected)
 			log.Debug().Bool("match", matches).Msg("CRD status")
-			if matches{
+			if matches {
 				return &matches, nil
 			}
 		}
-		if !issued{
+		if !issued {
 			time.Sleep(20 * time.Second)
 		}
 	}
