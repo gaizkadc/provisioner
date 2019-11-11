@@ -1,15 +1,16 @@
 {
-    "language": "golang",
-    "version": "v0.4.0",
-    "application_list": [
-        "provisioner", "provisioner-cli"
-    ],
-    "image_list": [
-        "provisioner"
-    ],
-    "tools": [
-        "azure",
-        "k8s",
-        "docker"
-    ]
+  "language": "golang",
+  "version": "v0.4.0",
+  "application_list": [
+    "provisioner",
+    "provisioner-cli"
+  ],
+  "image_list": [
+    "provisioner"
+  ],
+  "tools": [
+    "azure",
+    "k8s",
+    "docker"
+  ]
 }
