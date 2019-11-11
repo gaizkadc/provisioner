@@ -4,7 +4,7 @@ This repository contains the `provisioner` component in charge of creating new c
 
 ## Getting Started
 
-Any information required by the final user to use this repo.
+The component includes two binaries, the `provisioner` itself and a CLI called `provisioner-cli` to enable several functionalities that will be explained later. 
 
 ### Prerequisites
 
