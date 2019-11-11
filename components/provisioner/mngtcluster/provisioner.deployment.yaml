@@ -32,7 +32,6 @@ spec:
               mountPath: "/tmp/nalej"
           args:
             - "run"
-            - "--debug"
             - "--tempPath=/tmp/nalej/"
             - "--resourcesPath=/nalej/resources"
           securityContext:
