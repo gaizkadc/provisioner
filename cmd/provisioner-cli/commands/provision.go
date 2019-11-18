@@ -17,12 +17,14 @@
 package commands
 
 import (
+	"fmt"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner-cli"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/rs/zerolog/log"
+	uuid "github.com/satori/go.uuid"
 	"github.com/spf13/cobra"
 )
 
@@ -60,9 +62,10 @@ func TriggerProvisioning() {
 
 // ConfigureProvisioning configures the options using the standard gRPC structures for the provisioning command.
 func ConfigureProvisioning() {
-	provisionRequest.RequestId = "cli-request"
+	provisionRequest.RequestId = fmt.Sprintf("cli-provision-%s", uuid.NewV4().String())
 	provisionRequest.OrganizationId = "nalej"
-	provisionRequest.ClusterId = "mngt"
+	// The clusterID matches the clusterName on the management cluster.
+	provisionRequest.ClusterId = provisionRequest.ClusterName
 	// From the CLI only management clusters may be provisioned.
 	provisionRequest.IsManagementCluster = true
 	// Only kubernetes clusters for now
@@ -94,14 +97,14 @@ func ConfigureProvisioning() {
 func init() {
 	provisionCmd.Flags().StringVar(&provisionRequest.ClusterName, "name", "",
 		"Name of the cluster")
-	provisionCmd.MarkFlagRequired("name")
+	_ = provisionCmd.MarkFlagRequired("name")
 	provisionCmd.Flags().StringVar(&provisionRequest.KubernetesVersion, "kubernetesVersion", "1.13.11",
 		"Kubernetes version to be installed. The available versions depend on the target platform.")
 	provisionCmd.Flags().Int64Var(&provisionRequest.NumNodes, "numNodes", 3,
 		"Number of nodes in the cluster")
 	provisionCmd.Flags().StringVar(&provisionRequest.NodeType, "nodeType", "",
 		"Type of node to be requested")
-	provisionCmd.MarkFlagRequired("nodeType")
+	_ = provisionCmd.MarkFlagRequired("nodeType")
 	provisionCmd.Flags().StringVar(&provisionRequest.Zone, "zone", "",
 		"Zone where the cluster must be created")
 	provisionCmd.Flags().StringVar(&azureOptions.ResourceGroup, "resourceGroup", "",
@@ -112,7 +115,7 @@ func init() {
 		"Target plaftorm determining the provider: AZURE or BAREMETAL")
 	provisionCmd.Flags().BoolVar(&provisionRequest.IsProduction, "isProduction", false,
 		"Whether the provisioning if for a production cluster")
-	provisionCmd.MarkFlagRequired("platform")
+	_ = provisionCmd.MarkFlagRequired("platform")
 	provisionCmd.Flags().StringVar(&azureCredentialsPath, "azureCredentialsPath", "",
 		"Path to the file containing the azure credentials")
 	provisionCmd.Flags().StringVar(&kubeConfigOutputPath, "kubeConfigOutputPath", "/tmp/",

@@ -18,8 +18,9 @@ package entities
 
 import (
 	"github.com/nalej/derrors"
-	grpc_installer_go "github.com/nalej/grpc-installer-go"
-	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-installer-go"
+	"github.com/nalej/grpc-provisioner-go"
+	"github.com/rs/zerolog/log"
 )
 
 // TaskProgress enum with the progress of a given infrastructure operation.
@@ -50,14 +51,19 @@ var ToGRPCProvisionProgress = map[TaskProgress]grpc_provisioner_go.ProvisionProg
 	Finished:   grpc_provisioner_go.ProvisionProgress_FINISHED,
 }
 
+// OperationType defines the base type for an enum with the types of operations supported.
 type OperationType int
 
 const (
+	// Provision cluster operation.
 	Provision OperationType = iota
+	// Decomission cluster operation.
 	Decomission
+	// Scale cluster operation.
 	Scale
 )
 
+// ToOperationTypeString map associating enum values with the string representation.
 var ToOperationTypeString = map[OperationType]string{
 	Provision:   "Provision",
 	Decomission: "Decomission",
@@ -80,8 +86,10 @@ type OperationResult struct {
 	ProvisionResult *ProvisionResult
 }
 
+// ToProvisionClusterResult transforms an operation result into a ProvisionClusterResponse.
 func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.ProvisionClusterResponse, derrors.Error) {
 	if or.Type != Provision {
+		log.Error().Interface("result", or).Msg("cannot create scale cluster response for other type")
 		return nil, derrors.NewInternalError("cannot create provision cluster response for other type").WithParams(or)
 	}
 	kubeConfig := ""
@@ -107,5 +115,19 @@ func (or *OperationResult) ToProvisionClusterResult() (*grpc_provisioner_go.Prov
 		Error:             or.ErrorMsg,
 		RawKubeConfig:     kubeConfig,
 		StaticIpAddresses: staticIPAddresses,
+	}, nil
+}
+
+// ToScaleClusterResult transforms an operation result into a ScaleClusterResponse.
+func (or *OperationResult) ToScaleClusterResult() (*grpc_provisioner_go.ScaleClusterResponse, derrors.Error) {
+	if or.Type != Scale {
+		log.Error().Interface("result", or).Msg("cannot create scale cluster response for other type")
+		return nil, derrors.NewInternalError("cannot create scale cluster response for other type").WithParams(or)
+	}
+	return &grpc_provisioner_go.ScaleClusterResponse{
+		RequestId:   or.RequestId,
+		State:       ToGRPCProvisionProgress[or.Progress],
+		ElapsedTime: or.ElapsedTime,
+		Error:       or.ErrorMsg,
 	}, nil
 }

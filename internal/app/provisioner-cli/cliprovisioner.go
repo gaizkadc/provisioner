@@ -18,12 +18,10 @@ package provisioner_cli
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"time"
 
 	"github.com/nalej/derrors"
-	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
@@ -33,10 +31,9 @@ import (
 
 // CLIProvisioner structure to watch the provisioning process.
 type CLIProvisioner struct {
+	*CLICommon
 	request              *grpc_provisioner_go.ProvisionClusterRequest
 	Executor             workflow.Executor
-	lastLogEntry         int
-	kubeConfigOutputPath string
 	config               *config.Config
 }
 
@@ -46,10 +43,9 @@ func NewCLIProvisioner(
 	kubeConfigOutputPath string,
 	config *config.Config) *CLIProvisioner {
 	return &CLIProvisioner{
+		CLICommon: &CLICommon{lastLogEntry:0, kubeConfigOutputPath:kubeConfigOutputPath},
 		request:              request,
 		Executor:             workflow.GetExecutor(),
-		lastLogEntry:         0,
-		kubeConfigOutputPath: kubeConfigOutputPath,
 		config:               config,
 	}
 }
@@ -87,42 +83,9 @@ func (cp *CLIProvisioner) Run() derrors.Error {
 	fmt.Println("Provisioning took ", elapsed)
 	// Process the result
 	result := operation.Result()
-	cp.printJSONResult(result)
+	cp.printJSONResult(cp.request.ClusterName, result)
 	// cp.printTableResult(result)
 	return nil
-}
-
-// printOperationLog prints the logs entries to stdout as they become available.
-func (cp *CLIProvisioner) printOperationLog(logPool []string) {
-	if len(logPool) > cp.lastLogEntry {
-		for ; cp.lastLogEntry < len(logPool); cp.lastLogEntry++ {
-			log.Info().Msg(logPool[cp.lastLogEntry])
-		}
-	}
-}
-
-func (cp *CLIProvisioner) printJSONResult(result entities.OperationResult) {
-	logger := log.With().
-		Str("request_id", result.RequestId).
-		Str("type", entities.ToOperationTypeString[result.Type]).
-		Str("progress", entities.TaskProgressToString[result.Progress]).
-		Str("elapsed_time", time.Duration(result.ElapsedTime).String()).
-		Logger()
-
-	if result.Progress == entities.Error {
-		logger.Error().Msg(result.ErrorMsg)
-	} else {
-		if result.ProvisionResult != nil {
-			logger.Info().Str("kubeconfig", cp.writeKubeConfig(*result.ProvisionResult)).
-				Str("ingress_ip", result.ProvisionResult.StaticIPAddresses.Ingress).
-				Str("dns_ip", result.ProvisionResult.StaticIPAddresses.DNS).
-				Str("coredns_ip", result.ProvisionResult.StaticIPAddresses.CoreDNSExt).
-				Str("vpnserver_ip", result.ProvisionResult.StaticIPAddresses.VPNServer).
-				Msg("Finished provision operation")
-		} else {
-			logger.Warn().Msg("Expecting provisioning result")
-		}
-	}
 }
 
 // printResult prints the result of the command.
@@ -136,7 +99,7 @@ func (cp *CLIProvisioner) printTableResult(result entities.OperationResult) {
 		writer.Println("Error:\t", result.ErrorMsg)
 	} else {
 		if result.ProvisionResult != nil {
-			writer.Println("KubeConfig:\t", cp.writeKubeConfig(*result.ProvisionResult))
+			writer.Println("KubeConfig:\t", cp.writeKubeConfig(cp.request.ClusterName, *result.ProvisionResult))
 			writer.Println("Ingress IP:\t", result.ProvisionResult.StaticIPAddresses.Ingress)
 			writer.Println("DNS IP:\t", result.ProvisionResult.StaticIPAddresses.DNS)
 			writer.Println("CoreDNS IP:\t", result.ProvisionResult.StaticIPAddresses.CoreDNSExt)
@@ -151,13 +114,4 @@ func (cp *CLIProvisioner) printTableResult(result entities.OperationResult) {
 	}
 }
 
-// writeKubeConfig creates a YAML file with the resulting KubeConfig.
-func (cp *CLIProvisioner) writeKubeConfig(result entities.ProvisionResult) string {
-	fileName := fmt.Sprintf("%s.yaml", cp.request.ClusterName)
-	filePath := filepath.Join(cp.kubeConfigOutputPath, fileName)
-	err := ioutil.WriteFile(filePath, []byte(result.RawKubeConfig), 0600)
-	if err != nil {
-		log.Fatal().Err(err).Msg("cannot write kubeConfig")
-	}
-	return filePath
-}
+

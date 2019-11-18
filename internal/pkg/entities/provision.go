@@ -18,8 +18,8 @@ package entities
 
 import (
 	"github.com/nalej/derrors"
-	grpc_installer_go "github.com/nalej/grpc-installer-go"
-	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-installer-go"
+	"github.com/nalej/grpc-provisioner-go"
 	"github.com/rs/zerolog/log"
 )
 
@@ -115,13 +115,32 @@ func NewProvisionRequest(request *grpc_provisioner_go.ProvisionClusterRequest) P
 	}
 }
 
+// ScaleRequest entity reflecting the types contained in the gRPC entity.
 type ScaleRequest struct {
+	// RequestID with the request identifier.
+	RequestID string
+	// OrganizationId with the organization identifier.
+	OrganizationID string
+	// ClusterId with the cluster identifier.
+	ClusterID string
 	// NumNodes with the number of nodes of the cluster to be scaled to.
-	NumNodes int
-	// NodeType with the type of node to be used. This value must exist in the target infrastructure provider.
-	NodeType string
-	// Zone where the cluster will be provisioned. This value must exist in the target infrastructure provider.
-	Zone string
+	NumNodes int64
+	// IsManagementCluster to determine if the scaling is for a management or application cluster.
+	IsManagementCluster bool
+	// AzureOptions with the provisioning specific options.
+	AzureOptions *AzureOptions
+}
+
+// NewScaleRequest creates an internal representation of the grpc entity.
+func NewScaleRequest(request *grpc_provisioner_go.ScaleClusterRequest) ScaleRequest {
+	return ScaleRequest{
+		RequestID:           request.RequestId,
+		OrganizationID:      request.OrganizationId,
+		ClusterID:           request.ClusterId,
+		NumNodes:            request.NumNodes,
+		IsManagementCluster: request.IsManagementCluster,
+		AzureOptions:        NewAzureOptions(request.AzureOptions),
+	}
 }
 
 type StaticIPAddresses struct {
@@ -158,4 +177,27 @@ func (pr *ProvisionResult) SetIPAddress(addressName string, IP string) {
 	default:
 		log.Error().Str("addressName", addressName).Msg("target address name not supported")
 	}
+}
+
+// ValidScaleClusterRequest checks that the scale request contains the required values.
+func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) derrors.Error {
+	if request.RequestId == "" {
+		return derrors.NewInvalidArgumentError("request_id must be set by infrastructure-manager")
+	}
+	if request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError("organization_id cannot be empty")
+	}
+	if request.ClusterId == "" {
+		return derrors.NewInvalidArgumentError("cluster_id cannot be empty")
+	}
+	if request.IsManagementCluster {
+		return derrors.NewInvalidArgumentError("can only scale application clusters")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil {
+		return derrors.NewInvalidArgumentError("azure_credentials cannot be empty")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && (request.AzureOptions == nil || request.AzureOptions.ResourceGroup == "") {
+		return derrors.NewInvalidArgumentError("azure_options.resource_group cannot be empty")
+	}
+	return nil
 }

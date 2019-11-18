@@ -37,6 +37,22 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
+// OrganizationIDTag with the name of the tag associated with the Organization Id that created the cluster.
+const OrganizationIDTag = "organizationID"
+
+// ClusterIDTag with the name of the tag associated with the Cluster Id assigned to the cluster.
+const ClusterIDTag = "clusterID"
+
+// ClusterNameTag with the name of the tag associated with the initial name of the cluster. This
+// value even if it is not updated, is maintained for reference.
+const ClusterNameTag = "clusterName"
+
+// CreateByTag with the name of the tag used to indicate the creator of the cluster
+const CreateByTag = "created-by"
+
+// CreateByValue with the value of the CreateByTag to mark the cluster as Nalej managed
+const CreateByValue = "Nalej"
+
 const ContributorRole = "Contributor"
 const IPAddressCreateDeadline = 5 * time.Minute
 
@@ -44,6 +60,7 @@ const IPAddressCreateDeadline = 5 * time.Minute
 // CLI implementation itself and its origin unknown for now.
 const AzureRetries = 36
 
+// AzureOperation structure with common functions shared among the different operations.
 type AzureOperation struct {
 	sync.Mutex
 	credentials          *AzureCredentials
@@ -56,8 +73,8 @@ type AzureOperation struct {
 	elapsedTime          int64
 }
 
+// NewAzureOperation creates an AzureOperation with a set of credentials.
 func NewAzureOperation(credentials *AzureCredentials) (*AzureOperation, derrors.Error) {
-
 	graph, err := GetGraphAuthorizer(credentials)
 	if err != nil {
 		return nil, err
@@ -66,7 +83,6 @@ func NewAzureOperation(credentials *AzureCredentials) (*AzureOperation, derrors.
 	if err != nil {
 		return nil, err
 	}
-
 	return &AzureOperation{
 		credentials:          credentials,
 		graphAuthorizer:      graph,
@@ -76,26 +92,31 @@ func NewAzureOperation(credentials *AzureCredentials) (*AzureOperation, derrors.
 	}, nil
 }
 
+// Log returns the operation log.
 func (ao *AzureOperation) Log() []string {
 	ao.Lock()
 	defer ao.Unlock()
 	return ao.log
 }
 
+// AddToLog adds a new entry to the operation log.
 func (ao *AzureOperation) AddToLog(entry string) {
 	ao.Lock()
 	defer ao.Unlock()
 	ao.log = append(ao.log, entry)
 }
 
+// Progress returns the progress of an operation.
 func (ao *AzureOperation) Progress() entities.TaskProgress {
 	return ao.taskProgress
 }
 
+// SetProgress sets the progress of the ongoing operation.
 func (ao *AzureOperation) SetProgress(progress entities.TaskProgress) {
 	ao.taskProgress = progress
 }
 
+// setError updates all the fields to indicate that an error ocurred.
 func (ao *AzureOperation) setError(errMsg string) {
 	log.Debug().Str("previous", entities.TaskProgressToString[ao.taskProgress]).Str("error", errMsg).Msg("setting error")
 	ao.elapsedTime = time.Now().Sub(ao.started).Nanoseconds()
@@ -320,14 +341,20 @@ func (ao *AzureOperation) getVMSubnetID(clusterID string) string {
 	return fmt.Sprintf("nalej-%s", clusterID)
 }
 
+// getClusterName returns a valid cluster name to create resources in Azure.
 func (ao *AzureOperation) getClusterName(clusterName string) string {
-	nospaces := strings.ReplaceAll(clusterName, " ", "")
-	nodots := strings.ReplaceAll(nospaces, ".", "-")
-	return strings.ToLower(nodots)
+	noSpaces := strings.ReplaceAll(clusterName, " ", "")
+	noDots := strings.ReplaceAll(noSpaces, ".", "-")
+	return strings.ToLower(noDots)
 }
 
-func (ao *AzureOperation) getResourceName(clusterID string, clusterName string) string {
-	return fmt.Sprintf("%s-%s", clusterID, ao.getClusterName(clusterName))
+// GetResourceName returns the name of the azure resource based on the clusterID.
+func (ao *AzureOperation) getResourceName(isManagement bool, clusterID string) string {
+	if isManagement {
+		// When installing a management cluster, the clusterID matches the clusterName
+		return fmt.Sprintf("mngt-%s", ao.getClusterName(clusterID))
+	}
+	return fmt.Sprintf("appcluster-%s", clusterID)
 }
 
 // createIPAddress reserves an IP address.
@@ -337,7 +364,7 @@ func (ao *AzureOperation) createIPAddress(resourceGroupName string, addressName 
 	networkClient := network.NewPublicIPAddressesClient(ao.credentials.SubscriptionId)
 	networkClient.Authorizer = ao.managementAuthorizer
 	tags := make(map[string]*string, 0)
-	tags["created-by"] = StringAsPTR("Nalej")
+	tags[CreateByTag] = StringAsPTR(CreateByValue)
 
 	properties := &network.PublicIPAddressPropertiesFormat{
 		PublicIPAllocationMethod: network.Static,
@@ -453,4 +480,143 @@ func (ao *AzureOperation) createDNSNSRecord(resourceGroupName string, recordName
 	}
 	log.Debug().Interface("A record", entry).Msg("DNS entry has been created")
 	return &entry, nil
+}
+
+// GetClusterDetails retrieves the information of an existing cluster.
+func (ao *AzureOperation) getClusterDetails(isManagementCluster bool, resourceGroupName string, clusterID string) (*containerservice.ManagedCluster, derrors.Error) {
+	clusterClient := containerservice.NewManagedClustersClient(ao.credentials.SubscriptionId)
+	clusterClient.Authorizer = ao.managementAuthorizer
+	resourceName := ao.getResourceName(isManagementCluster, clusterID)
+
+	ctx, cancel := common.GetContext()
+	defer cancel()
+	managedCluster, err := clusterClient.Get(ctx, resourceGroupName, resourceName)
+	if err != nil {
+		return nil, derrors.NewNotFoundError("cannot retrieve managed cluster", err)
+	}
+	return &managedCluster, nil
+}
+
+// GetKubernetesUpdateRequest modifies the existing cluster object changing the number of nodes.
+func (ao *AzureOperation) getKubernetesUpdateRequest(existingCluster *containerservice.ManagedCluster, numNodes int64) (*containerservice.ManagedCluster, derrors.Error) {
+	createdBy, exists := existingCluster.Tags[CreateByTag]
+	if !exists || *createdBy != CreateByValue {
+		return nil, derrors.NewInvalidArgumentError("cannot manage non Nalej created clusters")
+	}
+	if existingCluster.AgentPoolProfiles == nil || len(*existingCluster.AgentPoolProfiles) != 1 {
+		return nil, derrors.NewInternalError("expecting a single agent pool profile")
+	}
+	numNodesPtr, err := Int64ToInt32(numNodes)
+	if err != nil {
+		return nil, err
+	}
+	(*existingCluster.AgentPoolProfiles)[0].Count = numNodesPtr
+	return existingCluster, nil
+}
+
+// getKubernetesCreateRequest creates the ManagedCluster object required to create or update a new AKS cluster.
+func (ao *AzureOperation) getKubernetesCreateRequest(
+	organizationID string, clusterID string, clusterName string, kubernetesVersion string,
+	numNodes int64, nodeType string, zone string,
+) (*containerservice.ManagedCluster, derrors.Error) {
+
+	tags := make(map[string]*string, 0)
+	tags[OrganizationIDTag] = StringAsPTR(organizationID)
+	tags[ClusterIDTag] = StringAsPTR(clusterID)
+	tags[ClusterNameTag] = StringAsPTR(ao.getClusterName(clusterName))
+	tags[CreateByTag] = StringAsPTR(CreateByValue)
+
+	numNodesPtr, err := Int64ToInt32(numNodes)
+	if err != nil {
+		return nil, err
+	}
+
+	vmSize, err := ao.getAzureVMSize(nodeType)
+	if err != nil {
+		return nil, err
+	}
+	dnsPrefix := ao.getDNSPrefix(clusterID)
+	vmSubnetID := ao.getVMSubnetID(clusterID)
+
+	agentProfile := ao.getManagedClusterAgentProfile(numNodesPtr, vmSize, &vmSubnetID, kubernetesVersion)
+	agentProfiles := []containerservice.ManagedClusterAgentPoolProfile{agentProfile}
+
+	properties := &containerservice.ManagedClusterProperties{
+		KubernetesVersion: StringAsPTR(kubernetesVersion),
+		DNSPrefix:         &dnsPrefix,
+		AgentPoolProfiles: &agentProfiles,
+		// LinuxProfile not set as SSH access is not required
+		LinuxProfile: nil,
+		// WindowsProfile not set.
+		WindowsProfile: nil,
+		// ServicePrincipalProfile associated with the cluster.
+		ServicePrincipalProfile: ao.getManagedClusterServicePrincipalProfile(),
+		AddonProfiles:           nil,
+		// NodeResourceGroup is an output value
+		NodeResourceGroup:       nil,
+		EnableRBAC:              BoolAsPTR(false),
+		EnablePodSecurityPolicy: nil,
+		NetworkProfile:          ao.getNetworkProfileType(),
+		AadProfile:              nil,
+		APIServerAccessProfile:  nil,
+	}
+
+	return &containerservice.ManagedCluster{
+		ManagedClusterProperties: properties,
+		Identity:                 nil,
+		Location:                 StringAsPTR(zone),
+		Tags:                     tags,
+	}, nil
+}
+
+func (ao *AzureOperation) getManagedClusterAgentProfile(numNodes *int32, vmSize *containerservice.VMSizeTypes, vmSubnetID *string, kubernetesVersion string) containerservice.ManagedClusterAgentPoolProfile {
+	agentProfile := containerservice.ManagedClusterAgentPoolProfile{
+		Name:         StringAsPTR("nalejpool"),
+		Count:        numNodes,
+		VMSize:       *vmSize,
+		OsDiskSizeGB: Int32AsPTR(0),
+		//VnetSubnetID:           vmSubnetID,
+		VnetSubnetID: nil,
+		// MaxPods not set to obtain the default value.
+		MaxPods: nil,
+		OsType:  OsType,
+		// MaxCount not set due to autoscaling disabled
+		MaxCount: nil,
+		// MinCount not set due to autoscaling disabled.
+		MinCount:            nil,
+		EnableAutoScaling:   BoolAsPTR(false),
+		Type:                containerservice.AvailabilitySet,
+		OrchestratorVersion: StringAsPTR(kubernetesVersion),
+		AvailabilityZones:   nil,
+		EnableNodePublicIP:  BoolAsPTR(false),
+		// ScaleSetPriority not set to use the default value (Regular).
+		ScaleSetPriority: "",
+		// ScaleSetEvictionPolicy not set use the default (Delete).
+		ScaleSetEvictionPolicy: "",
+		// NodeTaints not used.
+		NodeTaints: nil,
+	}
+	return agentProfile
+}
+
+// getNetworkProfileType returns the network profile of a new provisioned cluster.
+func (ao *AzureOperation) getNetworkProfileType() *containerservice.NetworkProfileType {
+	return &containerservice.NetworkProfileType{
+		NetworkPlugin:       "Kubenet",
+		NetworkPolicy:       "",
+		PodCidr:             nil,
+		ServiceCidr:         nil,
+		DNSServiceIP:        nil,
+		DockerBridgeCidr:    nil,
+		LoadBalancerSku:     "Basic",
+		LoadBalancerProfile: nil,
+	}
+}
+
+// getManagedClusterServicePrincipalProfile returns the service principal required to provision a new cluster.
+func (ao *AzureOperation) getManagedClusterServicePrincipalProfile() *containerservice.ManagedClusterServicePrincipalProfile {
+	return &containerservice.ManagedClusterServicePrincipalProfile{
+		ClientID: StringAsPTR(ao.credentials.ClientId),
+		Secret:   StringAsPTR(ao.credentials.ClientSecret),
+	}
 }

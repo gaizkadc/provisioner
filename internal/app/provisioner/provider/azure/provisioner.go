@@ -218,35 +218,7 @@ func (po ProvisionerOperation) Result() entities.OperationResult {
 	}
 }
 
-func (po ProvisionerOperation) getManagedClusterAgentProfile(numNodes *int32, vmSize *containerservice.VMSizeTypes, vmSubnetID *string) containerservice.ManagedClusterAgentPoolProfile {
-	agentProfile := containerservice.ManagedClusterAgentPoolProfile{
-		Name:         StringAsPTR("nalejpool"),
-		Count:        numNodes,
-		VMSize:       *vmSize,
-		OsDiskSizeGB: Int32AsPTR(0),
-		//VnetSubnetID:           vmSubnetID,
-		VnetSubnetID: nil,
-		// MaxPods not set to obtain the default value.
-		MaxPods: nil,
-		OsType:  OsType,
-		// MaxCount not set due to autoscaling disabled
-		MaxCount: nil,
-		// MinCount not set due to autoscaling disabled.
-		MinCount:            nil,
-		EnableAutoScaling:   BoolAsPTR(false),
-		Type:                containerservice.AvailabilitySet,
-		OrchestratorVersion: StringAsPTR(po.request.KubernetesVersion),
-		AvailabilityZones:   nil,
-		EnableNodePublicIP:  BoolAsPTR(false),
-		// ScaleSetPriority not set to use the default value (Regular).
-		ScaleSetPriority: "",
-		// ScaleSetEvictionPolicy not set use the default (Delete).
-		ScaleSetEvictionPolicy: "",
-		// NodeTaints not used.
-		NodeTaints: nil,
-	}
-	return agentProfile
-}
+
 
 func (po ProvisionerOperation) getLinuxProperties() *containerservice.LinuxProfile {
 	return &containerservice.LinuxProfile{
@@ -256,78 +228,6 @@ func (po ProvisionerOperation) getLinuxProperties() *containerservice.LinuxProfi
 	}
 }
 
-// getManagedClusterServicePrincipalProfile returns the service principal required to provision a new cluster.
-func (po ProvisionerOperation) getManagedClusterServicePrincipalProfile() *containerservice.ManagedClusterServicePrincipalProfile {
-	return &containerservice.ManagedClusterServicePrincipalProfile{
-		ClientID: StringAsPTR(po.credentials.ClientId),
-		Secret:   StringAsPTR(po.credentials.ClientSecret),
-	}
-}
-
-// getNetworkProfileType returns the network profile of a new provisioned cluster.
-func (po ProvisionerOperation) getNetworkProfileType() *containerservice.NetworkProfileType {
-	return &containerservice.NetworkProfileType{
-		NetworkPlugin:       "Kubenet",
-		NetworkPolicy:       "",
-		PodCidr:             nil,
-		ServiceCidr:         nil,
-		DNSServiceIP:        nil,
-		DockerBridgeCidr:    nil,
-		LoadBalancerSku:     "Basic",
-		LoadBalancerProfile: nil,
-	}
-}
-
-// getKubernetesCreateRequest creates the ManagedCluster object required to create a new AKS cluster.
-func (po ProvisionerOperation) getKubernetesCreateRequest() (*containerservice.ManagedCluster, derrors.Error) {
-	tags := make(map[string]*string, 0)
-	tags["clusterName"] = StringAsPTR(po.getClusterName(po.request.ClusterName))
-	tags["organizationID"] = StringAsPTR(po.request.OrganizationID)
-	tags["clusterID"] = StringAsPTR(po.request.ClusterID)
-	tags["created-by"] = StringAsPTR("Nalej")
-
-	numNodes, err := Int64ToInt32(po.request.NumNodes)
-	if err != nil {
-		return nil, err
-	}
-
-	vmSize, err := po.getAzureVMSize(po.request.NodeType)
-	if err != nil {
-		return nil, err
-	}
-	dnsPrefix := po.getDNSPrefix(po.request.ClusterID)
-	vmSubnetID := po.getVMSubnetID(po.request.ClusterID)
-
-	agentProfile := po.getManagedClusterAgentProfile(numNodes, vmSize, &vmSubnetID)
-	agentProfiles := []containerservice.ManagedClusterAgentPoolProfile{agentProfile}
-
-	properties := &containerservice.ManagedClusterProperties{
-		KubernetesVersion: StringAsPTR(po.request.KubernetesVersion),
-		DNSPrefix:         &dnsPrefix,
-		AgentPoolProfiles: &agentProfiles,
-		// LinuxProfile not set as SSH access is not required
-		LinuxProfile: nil,
-		// WindowsProfile not set.
-		WindowsProfile: nil,
-		// ServicePrincipalProfile associated with the cluster.
-		ServicePrincipalProfile: po.getManagedClusterServicePrincipalProfile(),
-		AddonProfiles:           nil,
-		// NodeResourceGroup is an output value
-		NodeResourceGroup:       nil,
-		EnableRBAC:              BoolAsPTR(false),
-		EnablePodSecurityPolicy: nil,
-		NetworkProfile:          po.getNetworkProfileType(),
-		AadProfile:              nil,
-		APIServerAccessProfile:  nil,
-	}
-
-	return &containerservice.ManagedCluster{
-		ManagedClusterProperties: properties,
-		Identity:                 nil,
-		Location:                 StringAsPTR(po.request.Zone),
-		Tags:                     tags,
-	}, nil
-}
 
 // createAKSCluster creates a new Kubernetes cluster managed by Azure
 //
@@ -338,19 +238,18 @@ func (po ProvisionerOperation) createAKSCluster() (*containerservice.ManagedClus
 	po.AddToLog("Creating new cluster")
 	clusterClient := containerservice.NewManagedClustersClient(po.credentials.SubscriptionId)
 	clusterClient.Authorizer = po.managementAuthorizer
-	parameters, err := po.getKubernetesCreateRequest()
+
+	parameters, err := po.getKubernetesCreateRequest(
+		po.request.OrganizationID, po.request.ClusterID,
+		po.request.ClusterName, po.request.KubernetesVersion,
+		po.request.NumNodes, po.request.NodeType, po.request.Zone)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := common.GetContext()
 	defer cancel()
 
-	var resourceName string
-	if po.request.IsManagementCluster {
-		resourceName = po.getResourceName(po.request.ClusterID, po.request.ClusterName)
-	} else {
-		resourceName = po.getClusterName(po.request.ClusterName)
-	}
+	resourceName := po.getResourceName(po.request.IsManagementCluster, po.request.ClusterID)
 	log.Debug().Str("resourceGroupName", po.request.AzureOptions.ResourceGroup).Str("resourceName", resourceName).Msg("CreateOrUpdate params")
 	responseFuture, createErr := clusterClient.CreateOrUpdate(ctx, po.request.AzureOptions.ResourceGroup, resourceName, *parameters)
 	if createErr != nil {
@@ -528,3 +427,5 @@ func (po ProvisionerOperation) requestCertificate() derrors.Error {
 	return po.certManagerHelper.CreateCertificate(
 		po.getClusterName(po.request.ClusterName), po.request.AzureOptions.DNSZoneName)
 }
+
+
