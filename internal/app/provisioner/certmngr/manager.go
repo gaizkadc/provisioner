@@ -265,8 +265,7 @@ func (cmh *CertManagerHelper) RequestCertificateIssuerOnAzure(
 		return err
 	}
 	// Then create the Issuer that will generate the secret.
-	err = cmh.createCertificateIssuerOnAzure(clientID, subscriptionID, tenantID, resourceGroupName, dnsZone, isProduction)
-	return nil
+	return cmh.createCertificateIssuerOnAzure(clientID, subscriptionID, tenantID, resourceGroupName, dnsZone, isProduction)
 }
 
 // createServicePrincipalSecretOnAzure creates a secret in Kubernetes that enables the cert manager to
@@ -325,9 +324,13 @@ func (cmh *CertManagerHelper) CheckCertificateIssuer() derrors.Error {
 		"clusterissuers", "letsencrypt",
 		[]string{"status", "conditions", "0", "reason"}, "ACMEAccountRegistered")
 	if err != nil {
+		log.Error().Str("trace", err.DebugReport()).Msg("unable to check certificate issuer")
 		return err
 	}
 	log.Debug().Bool("issued", *issued).Msg("Certificate issuer")
+	if !*issued {
+		return derrors.NewFailedPreconditionError("invalid state for certificate issuer")
+	}
 	return nil
 }
 
@@ -351,9 +354,13 @@ func (cmh *CertManagerHelper) ValidateCertificate() derrors.Error {
 		"certificates", ClientCertificate,
 		[]string{"status", "conditions", "0", "reason"}, "Ready")
 	if err != nil {
+		log.Error().Str("trace", err.DebugReport()).Msg("unable to check cluster certificate")
 		return err
 	}
 	log.Debug().Bool("issued", *issued).Msg("cluster certificate")
+	if !*issued {
+		return derrors.NewFailedPreconditionError("invalid state for cluster certificate")
+	}
 	return nil
 }
 
