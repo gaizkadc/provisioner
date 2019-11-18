@@ -22,7 +22,6 @@ import (
 	providerEntities "github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
-	"github.com/rs/zerolog/log"
 )
 
 type AzureInfrastructureProvider struct {
@@ -35,16 +34,17 @@ func NewAzureInfrastructureProvider(credentials *grpc_provisioner_go.AzureCreden
 	return &AzureInfrastructureProvider{creds, config}, nil
 }
 
+// Provision a cluster creates a InfrastructureOperation to provision a new cluster.
 func (aip *AzureInfrastructureProvider) Provision(request entities.ProvisionRequest) (entities.InfrastructureOperation, derrors.Error) {
-	// TODO remove this log entry
-	log.Debug().Interface("credentials", aip.credentials).Interface("request", request).Msg("creating provision operation")
 	return NewProvisionerOperation(aip.credentials, request, aip.config)
 }
 
+// Decomission a cluster creates a InfrastructureOperation to decomission a cluster.
 func (aip *AzureInfrastructureProvider) Decomission() (entities.InfrastructureOperation, derrors.Error) {
 	panic("implement me")
 }
 
+// Scale a cluster creates a InfrastructureOperation to scale a cluster.
 func (aip *AzureInfrastructureProvider) Scale(request entities.ScaleRequest) (entities.InfrastructureOperation, derrors.Error) {
-	panic("implement me")
+	return NewScalerOperation(aip.credentials, request, aip.config)
 }

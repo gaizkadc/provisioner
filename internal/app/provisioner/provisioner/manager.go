@@ -20,8 +20,8 @@ import (
 	"sync"
 
 	"github.com/nalej/derrors"
-	grpc_common_go "github.com/nalej/grpc-common-go"
-	grpc_provisioner_go "github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-common-go"
+	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"

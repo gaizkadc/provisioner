@@ -19,6 +19,9 @@ package scaler
 import (
 	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-utils/pkg/conversions"
+	"github.com/nalej/provisioner/internal/pkg/entities"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/net/context"
 )
 
@@ -30,14 +33,27 @@ func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
-func (h *Handler) ScaleCluster(context.Context, *grpc_provisioner_go.ScaleClusterRequest) (*grpc_provisioner_go.ScaleClusterResponse, error) {
-	panic("implement me")
+// ScaleCluster triggers the rescaling of a given cluster by adding or removing nodes.
+func (h *Handler) ScaleCluster(_ context.Context, request *grpc_provisioner_go.ScaleClusterRequest) (*grpc_provisioner_go.ScaleClusterResponse, error) {
+	err := entities.ValidScaleClusterRequest(request)
+	if err != nil {
+		log.Warn().Str("trace", err.DebugReport()).Msg(err.Error())
+		return nil, conversions.ToGRPCError(err)
+	}
+	log.Debug().Interface("request", request).Msg("scale cluster")
+	return h.Manager.ScaleCluster(request)
 }
 
-func (h *Handler) CheckProgress(context.Context, *grpc_common_go.RequestId) (*grpc_provisioner_go.ScaleClusterResponse, error) {
-	panic("implement me")
+// CheckProgress gets an updated state of a scale request.
+func (h *Handler) CheckProgress(_ context.Context, requestID *grpc_common_go.RequestId) (*grpc_provisioner_go.ScaleClusterResponse, error) {
+	return h.Manager.CheckProgress(requestID)
 }
 
-func (h *Handler) RemoveScale(context.Context, *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
-	panic("implement me")
+// RemoveScale cancels an ongoing scale process or removes the information of an already processed one.
+func (h *Handler) RemoveScale(_ context.Context, requestID *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
+	err := h.Manager.RemoveScale(requestID)
+	if err != nil {
+		return nil, err
+	}
+	return &grpc_common_go.Success{}, nil
 }
