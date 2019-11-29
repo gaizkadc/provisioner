@@ -40,11 +40,16 @@ func (aip *AzureInfrastructureProvider) Provision(request entities.ProvisionRequ
 }
 
 // Decomission a cluster creates a InfrastructureOperation to decomission a cluster.
-func (aip *AzureInfrastructureProvider) Decomission() (entities.InfrastructureOperation, derrors.Error) {
+func (aip *AzureInfrastructureProvider) Decommission() (entities.InfrastructureOperation, derrors.Error) {
 	panic("implement me")
 }
 
 // Scale a cluster creates a InfrastructureOperation to scale a cluster.
 func (aip *AzureInfrastructureProvider) Scale(request entities.ScaleRequest) (entities.InfrastructureOperation, derrors.Error) {
 	return NewScalerOperation(aip.credentials, request, aip.config)
+}
+
+// GetKubeConfig retrieves the KubeConfig file to access the management layer of Kubernetes.
+func (aip *AzureInfrastructureProvider) GetKubeConfig(request entities.ClusterRequest) (entities.InfrastructureOperation, derrors.Error) {
+	return NewManagementOperation(aip.credentials, request, entities.GetKubeConfig, aip.config)
 }

@@ -19,7 +19,8 @@ package provisioner
 import (
 	"fmt"
 	"github.com/nalej/grpc-provisioner-go"
-	"github.com/nalej/provisioner/internal/app/provisioner/decomissioner"
+	"github.com/nalej/provisioner/internal/app/provisioner/decommissioner"
+	"github.com/nalej/provisioner/internal/app/provisioner/management"
 	"github.com/nalej/provisioner/internal/app/provisioner/provisioner"
 	"github.com/nalej/provisioner/internal/app/provisioner/scaler"
 	"github.com/nalej/provisioner/internal/pkg/config"
@@ -55,16 +56,20 @@ func (s *Service) Run() error {
 	provisionerManager := provisioner.NewManager(s.Configuration)
 	provisionerHandler := provisioner.NewHandler(provisionerManager)
 
-	decomissionManager := decomissioner.NewManager(s.Configuration)
-	decomissionHandler := decomissioner.NewHandler(decomissionManager)
+	decommissionManager := decommissioner.NewManager(s.Configuration)
+	decommissionHandler := decommissioner.NewHandler(decommissionManager)
 
 	scaleManager := scaler.NewManager(s.Configuration)
 	scaleHandler := scaler.NewHandler(scaleManager)
 
+	mngtManager := management.NewManager(s.Configuration)
+	mngtHandler := management.NewHandler(mngtManager)
+
 	grpcServer := grpc.NewServer()
 	grpc_provisioner_go.RegisterProvisionServer(grpcServer, provisionerHandler)
-	grpc_provisioner_go.RegisterDecomissionServer(grpcServer, decomissionHandler)
+	grpc_provisioner_go.RegisterDecomissionServer(grpcServer, decommissionHandler)
 	grpc_provisioner_go.RegisterScaleServer(grpcServer, scaleHandler)
+	grpc_provisioner_go.RegisterManagementServer(grpcServer, mngtHandler)
 
 	if s.Configuration.Debug {
 		log.Info().Msg("Enabling gRPC server reflection")

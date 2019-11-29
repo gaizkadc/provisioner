@@ -12,13 +12,16 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
-package decomissioner
+package management
 
 import (
-	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-utils/pkg/conversions"
+	"github.com/nalej/provisioner/internal/pkg/entities"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/net/context"
 )
 
@@ -30,14 +33,12 @@ func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
-func (h *Handler) DecomissionCluster(context.Context, *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_provisioner_go.DecomissionClusterResponse, error) {
-	panic("implement me")
-}
-
-func (h *Handler) CheckProgress(context.Context, *grpc_common_go.RequestId) (*grpc_provisioner_go.DecomissionClusterResponse, error) {
-	panic("implement me")
-}
-
-func (h *Handler) RemoveDecomission(context.Context, *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
-	panic("implement me")
+// GetKubeConfig retrieves the KubeConfig file to access the management layer of Kubernetes.
+func (h *Handler) GetKubeConfig(_ context.Context, request *grpc_provisioner_go.ClusterRequest) (*grpc_provisioner_go.KubeConfigResponse, error) {
+	err := entities.ValidClusterRequest(request)
+	if err != nil {
+		log.Warn().Str("trace", err.DebugReport()).Msg(err.Error())
+		return nil, conversions.ToGRPCError(err)
+	}
+	return h.Manager.GetKubeConfig(request)
 }
