@@ -12,6 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package provisioner_cli
@@ -23,73 +24,89 @@ import (
 	"github.com/nalej/derrors"
 	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/provisioner/internal/app/provisioner/provider"
+	providerEntities "github.com/nalej/provisioner/internal/app/provisioner/provider/entities"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/nalej/provisioner/internal/pkg/entities"
 	"github.com/nalej/provisioner/internal/pkg/workflow"
 	"github.com/rs/zerolog/log"
 )
 
-// CLIProvisioner structure to watch the provisioning process.
-type CLIProvisioner struct {
+// CLIManagement structure to watch the provisioning process.
+type CLIManagement struct {
 	*CLICommon
-	request  *grpc_provisioner_go.ProvisionClusterRequest
-	Executor workflow.Executor
-	config   *config.Config
+	request   *grpc_provisioner_go.ClusterRequest
+	Operation entities.ManagementOperationType
+	Executor  workflow.Executor
+	config    *config.Config
 }
 
-// NewCLIProvisioner creates a new CLI managed provisioner without a service.
-func NewCLIProvisioner(
-	request *grpc_provisioner_go.ProvisionClusterRequest,
+// NewCLIManagement creates a new CLI for management operations.
+func NewCLIManagement(
+	request *grpc_provisioner_go.ClusterRequest,
+	operation entities.ManagementOperationType,
 	kubeConfigOutputPath string,
-	config *config.Config) *CLIProvisioner {
-	return &CLIProvisioner{
+	config *config.Config) *CLIManagement {
+	return &CLIManagement{
 		CLICommon: &CLICommon{lastLogEntry: 0, kubeConfigOutputPath: kubeConfigOutputPath},
 		request:   request,
+		Operation: operation,
 		Executor:  workflow.GetExecutor(),
 		config:    config,
 	}
 }
 
 // Run triggers the provisioning of a cluster.
-func (cp *CLIProvisioner) Run() derrors.Error {
-	vErr := cp.config.Validate()
+func (cm *CLIManagement) Run() derrors.Error {
+	vErr := cm.config.Validate()
 	if vErr != nil {
 		log.Fatal().Str("err", vErr.DebugReport()).Msg("invalid configuration")
 	}
-	cp.config.Print()
-	log.Debug().Str("target_platform", cp.request.TargetPlatform.String()).Bool("isProduction", cp.request.IsProduction).Msg("Provision request received")
-	infraProvider, err := provider.NewInfrastructureProvider(cp.request.TargetPlatform, cp.request.AzureCredentials, cp.config)
+	cm.config.Print()
+	log.Debug().Str("target_platform", cm.request.TargetPlatform.String()).Bool("isManagementCluster", cm.request.IsManagementCluster).Msg("Cluster request received")
+	infraProvider, err := provider.NewInfrastructureProvider(cm.request.TargetPlatform, cm.request.AzureCredentials, cm.config)
 	if err != nil {
 		log.Error().Msg("cannot obtain infrastructure provider")
 		return err
 	}
-	operation, err := infraProvider.Provision(entities.NewProvisionRequest(cp.request))
+
+	if cm.Operation == entities.GetKubeConfig {
+		return cm.GetKubeConfig(infraProvider)
+	} else {
+		log.Error().Msg("unsupported operation")
+	}
+
+	return nil
+}
+
+func (cm *CLIManagement) GetKubeConfig(infraProvider providerEntities.InfrastructureProvider) derrors.Error {
+	operation, err := infraProvider.GetKubeConfig(entities.NewClusterRequest(cm.request))
 	if err != nil {
-		log.Error().Str("trace", err.DebugReport()).Msg("cannot create provision operation")
+		log.Error().Str("trace", err.DebugReport()).Msg("cannot create get kubeconfig operation")
 		return err
 	}
-	cp.Executor.ScheduleOperation(operation)
 	start := time.Now()
 	checks := 0
-	for cp.Executor.IsManaged(cp.request.RequestId) {
+	wfc := &WaitForCompletion{Called: false}
+	operation.SetProgress(entities.InProgress)
+	operation.Execute(wfc.finished)
+	for !wfc.Called {
 		time.Sleep(15 * time.Second)
-		cp.printOperationLog(operation.Log())
+		cm.printOperationLog(operation.Log())
 		if checks%4 == 0 {
-			fmt.Printf("Provision operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
+			fmt.Printf("GetKubeConfig operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
 		}
 		checks++
 	}
 	elapsed := time.Since(start)
-	fmt.Println("Provisioning took ", elapsed)
+	fmt.Println("Retrieving kubeconfig took ", elapsed)
 	// Process the result
 	result := operation.Result()
-	cp.printJSONResult(cp.request.ClusterName, result)
-	// cp.printTableResult(result)
+	cm.printTableResult(result)
 	return nil
 }
 
 // printResult prints the result of the command.
-func (cp *CLIProvisioner) printTableResult(result entities.OperationResult) {
+func (cm *CLIManagement) printTableResult(result entities.OperationResult) {
 	writer := NewTabWriterHelper()
 	writer.Println("Request:\t", result.RequestId)
 	writer.Println("Type:\t", entities.ToOperationTypeString[result.Type])
@@ -98,18 +115,22 @@ func (cp *CLIProvisioner) printTableResult(result entities.OperationResult) {
 	if result.Progress == entities.Error {
 		writer.Println("Error:\t", result.ErrorMsg)
 	} else {
-		if result.ProvisionResult != nil {
-			writer.Println("KubeConfig:\t", cp.writeKubeConfig(cp.request.ClusterName, result.ProvisionResult.RawKubeConfig))
-			writer.Println("Ingress IP:\t", result.ProvisionResult.StaticIPAddresses.Ingress)
-			writer.Println("DNS IP:\t", result.ProvisionResult.StaticIPAddresses.DNS)
-			writer.Println("CoreDNS IP:\t", result.ProvisionResult.StaticIPAddresses.CoreDNSExt)
-			writer.Println("VPN Server IP:\t", result.ProvisionResult.StaticIPAddresses.VPNServer)
+		if result.KubeConfigResult != nil {
+			writer.Println("KubeConfig:\t", cm.writeKubeConfig(cm.request.ClusterId, *result.KubeConfigResult))
 		} else {
-			log.Warn().Msg("expecting provisioning result")
+			log.Warn().Msg("expecting kubeconfig result")
 		}
 	}
 	err := writer.Flush()
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot write result to stdout")
 	}
+}
+
+type WaitForCompletion struct {
+	Called bool
+}
+
+func (wfc *WaitForCompletion) finished(requestID string) {
+	wfc.Called = true
 }

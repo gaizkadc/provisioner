@@ -52,7 +52,7 @@ func (cc * CLICommon) printJSONResult(clusterName string, result entities.Operat
 		logger.Error().Msg(result.ErrorMsg)
 	} else {
 		if result.ProvisionResult != nil {
-			logger.Info().Str("kubeconfig", cc.writeKubeConfig(clusterName, *result.ProvisionResult)).
+			logger.Info().Str("kubeconfig", cc.writeKubeConfig(clusterName, result.ProvisionResult.RawKubeConfig)).
 				Str("ingress_ip", result.ProvisionResult.StaticIPAddresses.Ingress).
 				Str("dns_ip", result.ProvisionResult.StaticIPAddresses.DNS).
 				Str("coredns_ip", result.ProvisionResult.StaticIPAddresses.CoreDNSExt).
@@ -65,10 +65,10 @@ func (cc * CLICommon) printJSONResult(clusterName string, result entities.Operat
 }
 
 // writeKubeConfig creates a YAML file with the resulting KubeConfig.
-func (cc * CLICommon) writeKubeConfig(clusterName string, result entities.ProvisionResult) string {
+func (cc * CLICommon) writeKubeConfig(clusterName string, rawKubeConfig string) string {
 	fileName := fmt.Sprintf("%s.yaml", clusterName)
 	filePath := filepath.Join(cc.kubeConfigOutputPath, fileName)
-	err := ioutil.WriteFile(filePath, []byte(result.RawKubeConfig), 0600)
+	err := ioutil.WriteFile(filePath, []byte(rawKubeConfig), 0600)
 	if err != nil {
 		log.Fatal().Err(err).Msg("cannot write kubeConfig")
 	}
