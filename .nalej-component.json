@@ -9,6 +9,9 @@
   "image_list": [
     "provisioner"
   ],
+  "component_list": [
+    "provisioner"
+  ],
   "tools": [
     "k8s",
     "docker"
