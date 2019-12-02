@@ -10,7 +10,7 @@ resources:
       type: github
       name: nalej/ci-templates
       endpoint: nalej
-      ref: refs/tags/v1.0.4
+      ref: refs/tags/v1.0.5
 
 stages:
 - stage: 'SlackStart'
@@ -48,6 +48,72 @@ stages:
     steps:
     - template: misc/nalej-component.yaml@ci_templates 
     - template: steps/docker-main.yaml@ci_templates
+
+- stage: 'ComponentDeploy'
+  #condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  #dependsOn: 'ImageBuild'
+  dependsOn: 'BinaryBuild'
+  jobs:
+  - job: 
+    pool:
+      vmImage: 'ubuntu-latest'  
+    steps:
+    - template: misc/nalej-component.yaml@ci_templates
+
+    - template: k8s/yaml/render.yaml@ci_templates
+      parameters:
+        namespace: "__NPH_NAMESPACE"
+        componentList: $(componentList)
+        environment: "staging"
+        version: edge
+
+    - template: k8s/yaml/namespace.yaml@ci_templates
+      parameters:
+        namespace: $(namespace)
+        yamlPath: dist/yaml/staging
+
+    - task: DownloadSecureFile@1
+      name: ci_kubeconfig
+      inputs:
+        secureFile: ci_kubeconfig.yaml
+      displayName: "Get K8S configuration file"
+
+    - template: k8s/ns/create.yaml@ci_templates
+      parameters:
+        kubeconfig: $(kubeconfig)
+        namespace: $(namespace)
+
+    - template: k8s/resources/create.yaml@ci_templates
+      parameters:
+        kubeconfig: $(kubeconfig)
+        platform: mngtcluster
+        environment: "staging"
+    
+    - template: templates/verify_deploy.yaml
+      parameters:
+        kubeconfig: $(kubeconfig)
+        namespace: $(namespace)
+
+    - template: k8s/logs/archive.yaml@ci_templates
+      parameters:
+        kubeconfig: $(kubeconfig)
+        namespace: $(namespace)   
+
+    - template: k8s/ns/delete.yaml@ci_templates
+      parameters:
+        kubeconfig: $(kubeconfig)
+        namespace: $(namespace)
+
+- stage: 'AssetPublish'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  dependsOn: 'ComponentDeploy'
+  jobs:
+  - job: 
+    pool:
+      vmImage: 'ubuntu-latest'  
+    steps:
+    - template: misc/nalej-component.yaml@ci_templates
+    - template: steps/assets-main.yaml@ci_templates
 
 - stage: 'SlackFinish'
   condition: always()
