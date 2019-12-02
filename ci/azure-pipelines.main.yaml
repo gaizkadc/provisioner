@@ -50,9 +50,8 @@ stages:
     - template: steps/docker-main.yaml@ci_templates
 
 - stage: 'ComponentDeploy'
-  #condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-  #dependsOn: 'ImageBuild'
-  dependsOn: 'BinaryBuild'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  dependsOn: 'ImageBuild'
   jobs:
   - job: 
     pool:
