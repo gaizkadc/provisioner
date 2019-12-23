@@ -201,3 +201,45 @@ func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) 
 	}
 	return nil
 }
+
+func ValidDecommissionClusterRequest(request *grpc_provisioner_go.DecomissionClusterRequest) derrors.Error {
+	if request.RequestId == "" {
+		return derrors.NewInvalidArgumentError("request_id must be set")
+	}
+	if !request.IsManagementCluster && request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError("organization_id must be set")
+	}
+	if !request.IsManagementCluster && request.ClusterId == "" {
+		return derrors.NewInvalidArgumentError("cluster_id must be set")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil {
+		return derrors.NewInvalidArgumentError("azure_credentials must be set when type is Azure")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureOptions == nil {
+		return derrors.NewInvalidArgumentError("azure_options must be set when type is Azure")
+	}
+	return nil
+}
+
+type DecommissionRequest struct {
+	// RequestID with the request identifier.
+	RequestID string
+	// OrganizationId with the organization identifier.
+	OrganizationID string
+	// ClusterId with the cluster identifier.
+	ClusterID string
+	// IsManagementCluster to determine if the scaling is for a management or application cluster.
+	IsManagementCluster bool
+	// AzureOptions with the provisioning specific options.
+	AzureOptions *AzureOptions
+}
+
+func NewDecommissionRequest(request *grpc_provisioner_go.DecomissionClusterRequest) DecommissionRequest {
+	return DecommissionRequest{
+		RequestID:           request.GetRequestId(),
+		OrganizationID:      request.GetOrganizationId(),
+		ClusterID:           request.GetClusterId(),
+		IsManagementCluster: request.GetIsManagementCluster(),
+		AzureOptions:        NewAzureOptions(request.GetAzureOptions()),
+	}
+}
