@@ -40,8 +40,8 @@ func (aip *AzureInfrastructureProvider) Provision(request entities.ProvisionRequ
 }
 
 // Decomission a cluster creates a InfrastructureOperation to decomission a cluster.
-func (aip *AzureInfrastructureProvider) Decommission() (entities.InfrastructureOperation, derrors.Error) {
-	panic("implement me")
+func (aip *AzureInfrastructureProvider) Decommission(request entities.DecommissionRequest) (entities.InfrastructureOperation, derrors.Error) {
+	return NewDecommissionerOperation(aip.credentials, request, aip.config)
 }
 
 // Scale a cluster creates a InfrastructureOperation to scale a cluster.
