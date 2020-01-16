@@ -135,11 +135,12 @@ func (do *DecommissionerOperation) Result() entities.OperationResult {
 	}
 
 	return entities.OperationResult{
-		RequestId:   do.request.RequestID,
-		Type:        entities.Decommission,
-		Progress:    do.taskProgress,
-		ElapsedTime: elapsed,
-		ErrorMsg:    do.errorMsg,
+		OrganizationId: do.request.OrganizationID,
+		RequestId:      do.request.RequestID,
+		Type:           entities.Decommission,
+		Progress:       do.taskProgress,
+		ElapsedTime:    elapsed,
+		ErrorMsg:       do.errorMsg,
 	}
 }
 
