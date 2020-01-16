@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,14 +12,15 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
 package azure
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2019-08-01/containerservice"
+	"github.com/Azure/azure-sdk-for-go/services/dns/mgmt/2018-05-01/dns"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/nalej/derrors"
 	"github.com/nalej/provisioner/internal/pkg/common"
@@ -72,11 +73,49 @@ func (do *DecommissionerOperation) Execute(callback func(requestID string)) {
 	do.started = time.Now()
 	do.SetProgress(entities.InProgress)
 
+	do.AddToLog("Obtaining Cluster information")
+	managedCluster, err := do.getClusterDetails(do.request.IsManagementCluster, do.request.AzureOptions.ResourceGroup, do.request.ClusterID)
+	if err != nil {
+		do.notifyError(err, callback)
+		return
+	}
+	dnsZoneName := managedCluster.Tags[DnsZoneTag]
+	if dnsZoneName == nil {
+		do.notifyError(derrors.NewFailedPreconditionError(fmt.Sprintf("Cluster entity does not contain needed tag [%s]", DnsZoneTag)), callback)
+		return
+	}
+	clusterName := managedCluster.Tags[ClusterNameTag]
+	if clusterName == nil {
+		do.notifyError(derrors.NewFailedPreconditionError(fmt.Sprintf("Cluster entity does not contain needed tag [%s]", ClusterNameTag)), callback)
+		return
+	}
+
+	do.AddToLog("Obtaining DNS zone information")
+	zone, err := do.getDNSZone(*dnsZoneName)
+	if err != nil {
+		do.notifyError(err, callback)
+		return
+	}
+	dnsZoneResourceGroupName, err := do.getDNSResourceGroupName(zone)
+	if err != nil {
+		do.notifyError(err, callback)
+		return
+	}
+
+	do.AddToLog("Deleting DNS entries")
+	err = do.deleteDNSEntries(*clusterName, *dnsZoneResourceGroupName, *dnsZoneName)
+	if err != nil {
+		do.notifyError(err, callback)
+		return
+	}
+
+	do.AddToLog("Decommissioning cluster")
 	decommissionResponse, err := do.decommissionAksCluster()
 	if err != nil {
 		do.notifyError(err, callback)
 		return
 	}
+	do.AddToLog("cluster has been decommissioned")
 	log.Debug().Interface("response", *decommissionResponse).Msg("cluster has been decommissioned")
 
 	do.elapsedTime = time.Now().Sub(do.started).Nanoseconds()
@@ -102,6 +141,43 @@ func (do *DecommissionerOperation) Result() entities.OperationResult {
 		ElapsedTime: elapsed,
 		ErrorMsg:    do.errorMsg,
 	}
+}
+
+func (do *DecommissionerOperation) deleteDNSEntries(clusterName string, resourceGroupName string, dnsZoneName string) derrors.Error {
+	recordsetTypeA, err := do.listDnsRecords(resourceGroupName, dnsZoneName, clusterName)
+	if err != nil {
+		return err
+	}
+	recordsetTypeNS, err := do.listDnsRecords(resourceGroupName, dnsZoneName, fmt.Sprintf("%s.%s", clusterName, dnsZoneName))
+	if err != nil {
+		return err
+	}
+	toRemove := make([]dns.RecordSet, 0, len(recordsetTypeA)+len(recordsetTypeNS))
+	toRemove = append(toRemove, recordsetTypeA...)
+	toRemove = append(toRemove, recordsetTypeNS...)
+
+	for _, recordSet := range toRemove {
+		if recordSet.Name == nil {
+			log.Debug().
+				Str("resourceGroupName", resourceGroupName).
+				Str("DNSZoneName", dnsZoneName).
+				Interface("recordSet", recordSet).
+				Msg("recovered a DNS recordset without name")
+			continue
+		}
+		dnsRecordName := *recordSet.Name
+		log.Debug().
+			Str("resourceGroupName", resourceGroupName).
+			Str("dnsRecordName", dnsRecordName).
+			Str("DNSZoneName", dnsZoneName).
+			Msg("Deleting DNS A entry")
+		_, err := do.deleteDNSARecord(resourceGroupName, dnsRecordName, dnsZoneName)
+		if err != nil {
+			return err
+		}
+		do.AddToLog(fmt.Sprintf("DNS record set deleted %s", dnsRecordName))
+	}
+	return nil
 }
 
 // ScaleAKS triggers the scaling of an existing management cluster.

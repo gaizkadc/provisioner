@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,9 @@ const ClusterNameTag = "clusterName"
 
 // CreateByTag with the name of the tag used to indicate the creator of the cluster
 const CreateByTag = "created-by"
+
+// DnsZoneTag with the DNS zone associated to the cluster
+const DnsZoneTag = "DNS-zone"
 
 // CreateByValue with the value of the CreateByTag to mark the cluster as Nalej managed
 const CreateByValue = "Nalej"
@@ -428,6 +431,28 @@ func (ao *AzureOperation) retrieveKubeConfig(resourceGroupName string, resourceN
 	return &asString, nil
 }
 
+func (ao *AzureOperation) listDnsRecords(resourceGroupName string, dnsZone string, suffix string) ([]dns.RecordSet, derrors.Error) {
+	dnsClient := dns.NewRecordSetsClient(ao.credentials.SubscriptionId)
+	dnsClient.Authorizer = ao.managementAuthorizer
+
+	dnsRecords := make([]dns.RecordSet, 0)
+	ctx, cancel := common.GetContext()
+	defer cancel()
+	recordSetListResultIterator, err := dnsClient.ListAllByDNSZoneComplete(ctx, resourceGroupName, dnsZone, nil, suffix)
+	if err != nil {
+		return nil, derrors.AsError(err, "cannot list DNS entries")
+	}
+	dnsRecords = append(dnsRecords, recordSetListResultIterator.Value())
+	for recordSetListResultIterator.NotDone() {
+		err := recordSetListResultIterator.NextWithContext(ctx)
+		if err != nil {
+			return nil, derrors.AsError(err, "cannot list DNS entries")
+		}
+		dnsRecords = append(dnsRecords, recordSetListResultIterator.Value())
+	}
+	return dnsRecords, nil
+}
+
 // createDNSARecord creates a DNS A record for a given domain and IP.
 //az network dns record-set a add-record --resource-group $4 --zone-name $2 --record-set-name "$1" --ipv4-address $3 -o none
 func (ao *AzureOperation) createDNSARecord(resourceGroupName string, recordName string, dnsZone string, IPAddress string) (*dns.RecordSet, derrors.Error) {
@@ -455,6 +480,21 @@ func (ao *AzureOperation) createDNSARecord(resourceGroupName string, recordName 
 	return &entry, nil
 }
 
+// deleteDNSARecord removes a DNS A record
+func (ao *AzureOperation) deleteDNSARecord(resourceGroupName string, recordName string, dnsZone string) (*autorest.Response, derrors.Error) {
+	dnsClient := dns.NewRecordSetsClient(ao.credentials.SubscriptionId)
+	dnsClient.Authorizer = ao.managementAuthorizer
+	recordType := dns.A
+
+	ctx, cancel := common.GetContext()
+	defer cancel()
+	result, err := dnsClient.Delete(ctx, resourceGroupName, dnsZone, recordName, recordType, "")
+	if err != nil {
+		return nil, derrors.AsError(err, "cannot delete DNS entry")
+	}
+	return &result, nil
+}
+
 // createDNSARecord creates a DNS NS record for a given domain and IP.
 //az network dns record-set ns add-record --resource-group $4 --zone-name $2 --record-set-name "$1" --nsdname "$3.$2" -o none
 func (ao *AzureOperation) createDNSNSRecord(resourceGroupName string, recordName string, nsName string, dnsZone string) (*dns.RecordSet, derrors.Error) {
@@ -480,6 +520,21 @@ func (ao *AzureOperation) createDNSNSRecord(resourceGroupName string, recordName
 	}
 	log.Debug().Interface("A record", entry).Msg("DNS entry has been created")
 	return &entry, nil
+}
+
+// deleteDNSNSRecord removes a DNS NS record
+func (ao *AzureOperation) deleteDNSNSRecord(resourceGroupName string, recordName string, dnsZone string) (*autorest.Response, derrors.Error) {
+	dnsClient := dns.NewRecordSetsClient(ao.credentials.SubscriptionId)
+	dnsClient.Authorizer = ao.managementAuthorizer
+	recordType := dns.NS
+
+	ctx, cancel := common.GetContext()
+	defer cancel()
+	result, err := dnsClient.Delete(ctx, resourceGroupName, dnsZone, recordName, recordType, "")
+	if err != nil {
+		return nil, derrors.AsError(err, "cannot delete DNS entry")
+	}
+	return &result, nil
 }
 
 // GetClusterDetails retrieves the information of an existing cluster.
@@ -517,7 +572,7 @@ func (ao *AzureOperation) getKubernetesUpdateRequest(existingCluster *containers
 // getKubernetesCreateRequest creates the ManagedCluster object required to create or update a new AKS cluster.
 func (ao *AzureOperation) getKubernetesCreateRequest(
 	organizationID string, clusterID string, clusterName string, kubernetesVersion string,
-	numNodes int64, nodeType string, zone string,
+	numNodes int64, nodeType string, zone string, dnsZoneName string,
 ) (*containerservice.ManagedCluster, derrors.Error) {
 
 	tags := make(map[string]*string, 0)
@@ -525,6 +580,7 @@ func (ao *AzureOperation) getKubernetesCreateRequest(
 	tags[ClusterIDTag] = StringAsPTR(clusterID)
 	tags[ClusterNameTag] = StringAsPTR(ao.getClusterName(clusterName))
 	tags[CreateByTag] = StringAsPTR(CreateByValue)
+	tags[DnsZoneTag] = StringAsPTR(dnsZoneName)
 
 	numNodesPtr, err := Int64ToInt32(numNodes)
 	if err != nil {
