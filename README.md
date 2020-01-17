@@ -55,6 +55,11 @@ To provision a new cluster:
 provisioner-cli provision [flags]
 ```
 
+To decommission an existing cluster:
+```shell script
+provisioner-cli decommission --azureCredentialsPath {{path-to-azure-credentials}} --name {{cluster-name}} --platform AZURE --resourceGroup {{resource-group}}
+```
+
 ## Contributing
 
 Please read [contributing.md](contributing.md) for details on our code of conduct, and the process for submitting pull requests to us.
