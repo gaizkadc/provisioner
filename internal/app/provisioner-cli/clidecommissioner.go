@@ -81,7 +81,7 @@ func (cs *CLIDecommissioner) Run() derrors.Error {
 	fmt.Println("Decommissioning took ", elapsed)
 	// Process the result
 	result := operation.Result()
-	cs.printJSONResult("unknown", result)
+	cs.printJSONResult(cs.request.ClusterId, result)
 	// cp.printTableResult(result)
 	return nil
 }

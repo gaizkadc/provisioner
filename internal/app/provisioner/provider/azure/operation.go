@@ -298,6 +298,7 @@ func (ao *AzureOperation) getDNSResourceGroupName(zone *dns.Zone) (*string, derr
 }
 
 func (ao *AzureOperation) getDNSZone(zoneName string) (*dns.Zone, derrors.Error) {
+	ao.AddToLog("Obtaining DNS zone information")
 	zoneClient := dns.NewZonesClient(ao.credentials.SubscriptionId)
 	zoneClient.Authorizer = ao.managementAuthorizer
 	ctx, cancel := common.GetContext()
@@ -539,6 +540,7 @@ func (ao *AzureOperation) deleteDNSNSRecord(resourceGroupName string, recordName
 
 // GetClusterDetails retrieves the information of an existing cluster.
 func (ao *AzureOperation) getClusterDetails(isManagementCluster bool, resourceGroupName string, clusterID string) (*containerservice.ManagedCluster, derrors.Error) {
+	ao.AddToLog("Obtaining Cluster information")
 	clusterClient := containerservice.NewManagedClustersClient(ao.credentials.SubscriptionId)
 	clusterClient.Authorizer = ao.managementAuthorizer
 	resourceName := ao.getResourceName(isManagementCluster, clusterID)

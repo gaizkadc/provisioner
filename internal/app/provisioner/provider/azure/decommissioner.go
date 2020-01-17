@@ -73,7 +73,6 @@ func (do *DecommissionerOperation) Execute(callback func(requestID string)) {
 	do.started = time.Now()
 	do.SetProgress(entities.InProgress)
 
-	do.AddToLog("Obtaining Cluster information")
 	managedCluster, err := do.getClusterDetails(do.request.IsManagementCluster, do.request.AzureOptions.ResourceGroup, do.request.ClusterID)
 	if err != nil {
 		do.notifyError(err, callback)
@@ -90,7 +89,6 @@ func (do *DecommissionerOperation) Execute(callback func(requestID string)) {
 		return
 	}
 
-	do.AddToLog("Obtaining DNS zone information")
 	zone, err := do.getDNSZone(*dnsZoneName)
 	if err != nil {
 		do.notifyError(err, callback)
@@ -102,14 +100,12 @@ func (do *DecommissionerOperation) Execute(callback func(requestID string)) {
 		return
 	}
 
-	do.AddToLog("Deleting DNS entries")
 	err = do.deleteDNSEntries(*clusterName, *dnsZoneResourceGroupName, *dnsZoneName)
 	if err != nil {
 		do.notifyError(err, callback)
 		return
 	}
 
-	do.AddToLog("Decommissioning cluster")
 	decommissionResponse, err := do.decommissionAksCluster()
 	if err != nil {
 		do.notifyError(err, callback)
@@ -145,6 +141,7 @@ func (do *DecommissionerOperation) Result() entities.OperationResult {
 }
 
 func (do *DecommissionerOperation) deleteDNSEntries(clusterName string, resourceGroupName string, dnsZoneName string) derrors.Error {
+	do.AddToLog("Deleting DNS entries")
 	recordsetTypeA, err := do.listDnsRecords(resourceGroupName, dnsZoneName, clusterName)
 	if err != nil {
 		return err
