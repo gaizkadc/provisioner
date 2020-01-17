@@ -57,7 +57,7 @@ func (cs *CLIDecommissioner) Run() derrors.Error {
 	log.Debug().Str("target_platform", cs.request.TargetPlatform.String()).Msg("Decommission request received")
 	infraProvider, err := provider.NewInfrastructureProvider(cs.request.TargetPlatform, cs.request.AzureCredentials, cs.config)
 	if err != nil {
-		log.Error().Msg("cannot obtain infrastructure provider")
+		log.Error().Str("provider", cs.request.TargetPlatform.String()).Msg("cannot obtain infrastructure provider")
 		return err
 	}
 	operation, err := infraProvider.Decommission(entities.NewDecommissionRequest(cs.request))
@@ -73,12 +73,12 @@ func (cs *CLIDecommissioner) Run() derrors.Error {
 		time.Sleep(15 * time.Second)
 		cs.printOperationLog(operation.Log())
 		if checks%4 == 0 {
-			fmt.Printf("Provision operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
+			fmt.Printf("Decommission operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
 		}
 		checks++
 	}
 	elapsed := time.Since(start)
-	fmt.Println("Provisioning took ", elapsed)
+	fmt.Println("Decommissioning took ", elapsed)
 	// Process the result
 	result := operation.Result()
 	cs.printJSONResult("unknown", result)
