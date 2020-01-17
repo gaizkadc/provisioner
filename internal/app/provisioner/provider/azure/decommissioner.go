@@ -78,6 +78,8 @@ func (do *DecommissionerOperation) Execute(callback func(requestID string)) {
 		do.notifyError(err, callback)
 		return
 	}
+	log.Debug().Interface("existingCluster", managedCluster).Msg("AKS cluster retrieved")
+
 	dnsZoneName := managedCluster.Tags[DnsZoneTag]
 	if dnsZoneName == nil {
 		do.notifyError(derrors.NewFailedPreconditionError(fmt.Sprintf("Cluster entity does not contain needed tag [%s]", DnsZoneTag)), callback)
@@ -183,12 +185,6 @@ func (do *DecommissionerOperation) decommissionAksCluster() (*autorest.Response,
 	do.AddToLog("Decommissioning cluster")
 	clusterClient := containerservice.NewManagedClustersClient(do.credentials.SubscriptionId)
 	clusterClient.Authorizer = do.managementAuthorizer
-
-	existingCluster, err := do.getClusterDetails(do.request.IsManagementCluster, do.request.AzureOptions.ResourceGroup, do.request.ClusterID)
-	if err != nil {
-		return nil, err
-	}
-	log.Debug().Interface("existingCluster", existingCluster).Msg("AKS cluster retrieved")
 
 	ctx, cancel := common.GetContext()
 	defer cancel()
