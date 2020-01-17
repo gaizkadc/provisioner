@@ -181,9 +181,9 @@ func (do *DecommissionerOperation) deleteDNSEntries(clusterName string, resource
 	return nil
 }
 
-// ScaleAKS triggers the scaling of an existing management cluster.
+// decommissionAksCluster triggers the decommission of an existing management cluster.
 func (do *DecommissionerOperation) decommissionAksCluster() (*autorest.Response, derrors.Error) {
-	do.AddToLog("Scaling existing cluster")
+	do.AddToLog("Decommissioning cluster")
 	clusterClient := containerservice.NewManagedClustersClient(do.credentials.SubscriptionId)
 	clusterClient.Authorizer = do.managementAuthorizer
 
