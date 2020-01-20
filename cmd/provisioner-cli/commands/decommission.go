@@ -75,7 +75,7 @@ func ConfigureDecommission() {
 func TriggerDecommission() {
 	cliDecommissioner := provisioner_cli.NewCLIDecommissioner(&decommissionRequest, cfg)
 	err := cliDecommissioner.Run()
-	ExitOnError(err, "scaling failed")
+	ExitOnError(err, "decommission failed")
 }
 
 func init() {
