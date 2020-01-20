@@ -51,7 +51,8 @@ func NewCLIDecommissioner(
 func (cs *CLIDecommissioner) Run() derrors.Error {
 	vErr := cs.config.Validate()
 	if vErr != nil {
-		log.Fatal().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		log.Error().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		return vErr
 	}
 	cs.config.Print()
 	log.Debug().Str("target_platform", cs.request.TargetPlatform.String()).Msg("Decommission request received")
@@ -83,5 +84,8 @@ func (cs *CLIDecommissioner) Run() derrors.Error {
 	result := operation.Result()
 	cs.printJSONResult(cs.request.ClusterId, result)
 	// cp.printTableResult(result)
+	if result.ErrorMsg != "" {
+		return derrors.NewInternalError(result.ErrorMsg)
+	}
 	return nil
 }

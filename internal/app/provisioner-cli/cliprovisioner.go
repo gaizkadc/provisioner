@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,8 @@ func NewCLIProvisioner(
 func (cp *CLIProvisioner) Run() derrors.Error {
 	vErr := cp.config.Validate()
 	if vErr != nil {
-		log.Fatal().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		log.Error().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		return vErr
 	}
 	cp.config.Print()
 	log.Debug().Str("target_platform", cp.request.TargetPlatform.String()).Bool("isProduction", cp.request.IsProduction).Msg("Provision request received")
@@ -85,6 +86,9 @@ func (cp *CLIProvisioner) Run() derrors.Error {
 	result := operation.Result()
 	cp.printJSONResult(cp.request.ClusterName, result)
 	// cp.printTableResult(result)
+	if result.ErrorMsg != "" {
+		return derrors.NewInternalError(result.ErrorMsg)
+	}
 	return nil
 }
 
