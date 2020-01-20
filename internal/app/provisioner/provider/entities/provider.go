@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import (
 type InfrastructureProvider interface {
 	// Provision a cluster creates a InfrastructureOperation to provision a new cluster.
 	Provision(request entities.ProvisionRequest) (entities.InfrastructureOperation, derrors.Error)
-	// Decommission a cluster creates a InfrastructureOperation to decomission a cluster.
+	// Decommission a cluster creates a InfrastructureOperation to decommission a cluster.
 	Decommission(request entities.DecommissionRequest) (entities.InfrastructureOperation, derrors.Error)
 	// Scale a cluster creates a InfrastructureOperation to scale a cluster.
 	Scale(request entities.ScaleRequest) (entities.InfrastructureOperation, derrors.Error)

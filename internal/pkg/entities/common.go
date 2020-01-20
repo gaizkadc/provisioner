@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,8 +59,8 @@ var ToGRPCOpStatus = map[TaskProgress]grpc_common_go.OpStatus{
 	Init:       grpc_common_go.OpStatus_INIT,
 	Registered: grpc_common_go.OpStatus_SCHEDULED,
 	InProgress: grpc_common_go.OpStatus_INPROGRESS,
-	Finished:      grpc_common_go.OpStatus_SUCCESS,
-	Error:   grpc_common_go.OpStatus_FAILED,
+	Finished:   grpc_common_go.OpStatus_SUCCESS,
+	Error:      grpc_common_go.OpStatus_FAILED,
 }
 
 // OperationType defines the base type for an enum with the types of operations supported.
@@ -69,7 +69,7 @@ type OperationType int
 const (
 	// Provision cluster operation.
 	Provision OperationType = iota
-	// Decomission cluster operation.
+	// Decommission cluster operation.
 	Decommission
 	// Scale cluster operation.
 	Scale
@@ -79,10 +79,10 @@ const (
 
 // ToOperationTypeString map associating enum values with the string representation.
 var ToOperationTypeString = map[OperationType]string{
-	Provision:   "Provision",
+	Provision:    "Provision",
 	Decommission: "Decommission",
-	Scale:       "Scale",
-	Management: "Management",
+	Scale:        "Scale",
+	Management:   "Management",
 }
 
 // OperationResult with the result of a successful infrastructure operation
@@ -152,20 +152,20 @@ func (or *OperationResult) ToScaleClusterResult() (*grpc_provisioner_go.ScaleClu
 	}, nil
 }
 
-func (or *OperationResult) ToOpResponse() (*grpc_common_go.OpResponse, derrors.Error){
+func (or *OperationResult) ToOpResponse() (*grpc_common_go.OpResponse, derrors.Error) {
 	// TODO When provisioner is refactored to return OpResponses, this check should be updated.
 	if or.Type != Decommission {
 		log.Error().Interface("result", or).Msg("cannot create op response for other type")
 		return nil, derrors.NewInternalError("cannot create op response for other type").WithParams(or)
 	}
 	return &grpc_common_go.OpResponse{
-		OrganizationId:       or.OrganizationId,
-		RequestId:            or.RequestId,
-		OperationName:        ToOperationTypeString[or.Type],
-		ElapsedTime:          or.ElapsedTime,
-		Timestamp:            time.Now().Unix(),
-		Status:               ToGRPCOpStatus[or.Progress],
-		Info:                 "",
-		Error:                or.ErrorMsg,
+		OrganizationId: or.OrganizationId,
+		RequestId:      or.RequestId,
+		OperationName:  ToOperationTypeString[or.Type],
+		ElapsedTime:    or.ElapsedTime,
+		Timestamp:      time.Now().Unix(),
+		Status:         ToGRPCOpStatus[or.Progress],
+		Info:           "",
+		Error:          or.ErrorMsg,
 	}, nil
 }

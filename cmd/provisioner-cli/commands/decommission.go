@@ -28,7 +28,7 @@ import (
 )
 
 // DecommissionRequest contains the elements that will be requested to perform a decommission operation.
-var decommissionRequest grpc_provisioner_go.DecomissionClusterRequest
+var decommissionRequest grpc_provisioner_go.DecommissionClusterRequest
 
 // provisionCmd with the command to provision a new cluster.
 var decommissionCmd = &cobra.Command{

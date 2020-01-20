@@ -31,14 +31,14 @@ import (
 // CLIDecommissioner structure to watch the decommission process.
 type CLIDecommissioner struct {
 	*CLICommon
-	request  *grpc_provisioner_go.DecomissionClusterRequest
+	request  *grpc_provisioner_go.DecommissionClusterRequest
 	Executor workflow.Executor
 	config   *config.Config
 }
 
 // NewCLIDecommissioner creates a new CLI managed decommissioner without a service.
 func NewCLIDecommissioner(
-	request *grpc_provisioner_go.DecomissionClusterRequest,
+	request *grpc_provisioner_go.DecommissionClusterRequest,
 	config *config.Config) *CLIDecommissioner {
 	return &CLIDecommissioner{
 		CLICommon: &CLICommon{lastLogEntry: 0},

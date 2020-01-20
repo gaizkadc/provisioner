@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
-func (h *Handler) DecomissionCluster(ctx context.Context, request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, error) {
+func (h *Handler) DecommissionCluster(ctx context.Context, request *grpc_provisioner_go.DecommissionClusterRequest) (*grpc_common_go.OpResponse, error) {
 	err := entities.ValidDecommissionClusterRequest(request)
 	if err != nil {
 		log.Warn().Str("trace", err.DebugReport()).Msg(err.Error())
@@ -47,6 +47,6 @@ func (h *Handler) CheckProgress(_ context.Context, request *grpc_common_go.Reque
 	return h.Manager.CheckProgress(request)
 }
 
-func (h *Handler) RemoveDecomission(_ context.Context, request *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
+func (h *Handler) RemoveDecommission(_ context.Context, request *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
 	return h.Manager.RemoveDecommission(request)
 }
