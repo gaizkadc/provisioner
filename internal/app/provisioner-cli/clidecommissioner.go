@@ -28,19 +28,19 @@ import (
 	"time"
 )
 
-// CLIScaler structure to watch the scaling process.
-type CLIScaler struct {
+// CLIDecommissioner structure to watch the decommission process.
+type CLIDecommissioner struct {
 	*CLICommon
-	request  *grpc_provisioner_go.ScaleClusterRequest
+	request  *grpc_provisioner_go.DecomissionClusterRequest
 	Executor workflow.Executor
 	config   *config.Config
 }
 
-// NewCLIScaler creates a new CLI managed scaler without a service.
-func NewCLIScaler(
-	request *grpc_provisioner_go.ScaleClusterRequest,
-	config *config.Config) *CLIScaler {
-	return &CLIScaler{
+// NewCLIDecommissioner creates a new CLI managed decommissioner without a service.
+func NewCLIDecommissioner(
+	request *grpc_provisioner_go.DecomissionClusterRequest,
+	config *config.Config) *CLIDecommissioner {
+	return &CLIDecommissioner{
 		CLICommon: &CLICommon{lastLogEntry: 0},
 		request:   request,
 		Executor:  workflow.GetExecutor(),
@@ -48,21 +48,21 @@ func NewCLIScaler(
 	}
 }
 
-func (cs *CLIScaler) Run() derrors.Error {
+func (cs *CLIDecommissioner) Run() derrors.Error {
 	vErr := cs.config.Validate()
 	if vErr != nil {
 		log.Fatal().Str("err", vErr.DebugReport()).Msg("invalid configuration")
 	}
 	cs.config.Print()
-	log.Debug().Str("target_platform", cs.request.TargetPlatform.String()).Msg("Scale request received")
+	log.Debug().Str("target_platform", cs.request.TargetPlatform.String()).Msg("Decommission request received")
 	infraProvider, err := provider.NewInfrastructureProvider(cs.request.TargetPlatform, cs.request.AzureCredentials, cs.config)
 	if err != nil {
-		log.Error().Msg("cannot obtain infrastructure provider")
+		log.Error().Str("provider", cs.request.TargetPlatform.String()).Msg("cannot obtain infrastructure provider")
 		return err
 	}
-	operation, err := infraProvider.Scale(entities.NewScaleRequest(cs.request))
+	operation, err := infraProvider.Decommission(entities.NewDecommissionRequest(cs.request))
 	if err != nil {
-		log.Error().Str("trace", err.DebugReport()).Msg("cannot create scale operation")
+		log.Error().Str("trace", err.DebugReport()).Msg("cannot create decommission operation")
 		return err
 	}
 
@@ -73,15 +73,15 @@ func (cs *CLIScaler) Run() derrors.Error {
 		time.Sleep(15 * time.Second)
 		cs.printOperationLog(operation.Log())
 		if checks%4 == 0 {
-			fmt.Printf("Scaling operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
+			fmt.Printf("Decommission operation %s - %s\n", entities.TaskProgressToString[operation.Progress()], time.Since(start).String())
 		}
 		checks++
 	}
 	elapsed := time.Since(start)
-	fmt.Println("Scaling took ", elapsed)
+	fmt.Println("Decommissioning took ", elapsed)
 	// Process the result
 	result := operation.Result()
-	cs.printJSONResult("unknown", result)
+	cs.printJSONResult(cs.request.ClusterId, result)
 	// cp.printTableResult(result)
 	return nil
 }

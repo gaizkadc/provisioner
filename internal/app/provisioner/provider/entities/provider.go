@@ -29,7 +29,7 @@ type InfrastructureProvider interface {
 	// Provision a cluster creates a InfrastructureOperation to provision a new cluster.
 	Provision(request entities.ProvisionRequest) (entities.InfrastructureOperation, derrors.Error)
 	// Decommission a cluster creates a InfrastructureOperation to decomission a cluster.
-	Decommission() (entities.InfrastructureOperation, derrors.Error)
+	Decommission(request entities.DecommissionRequest) (entities.InfrastructureOperation, derrors.Error)
 	// Scale a cluster creates a InfrastructureOperation to scale a cluster.
 	Scale(request entities.ScaleRequest) (entities.InfrastructureOperation, derrors.Error)
 	// GetKubeConfig retrieves the KubeConfig file to access the management layer of Kubernetes.

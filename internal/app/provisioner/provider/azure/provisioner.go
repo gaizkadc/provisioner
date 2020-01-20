@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -218,8 +218,6 @@ func (po ProvisionerOperation) Result() entities.OperationResult {
 	}
 }
 
-
-
 func (po ProvisionerOperation) getLinuxProperties() *containerservice.LinuxProfile {
 	return &containerservice.LinuxProfile{
 		// AdminUsername set to the default azure value to facilitate other admin tasks.
@@ -227,7 +225,6 @@ func (po ProvisionerOperation) getLinuxProperties() *containerservice.LinuxProfi
 		SSH:           nil,
 	}
 }
-
 
 // createAKSCluster creates a new Kubernetes cluster managed by Azure
 //
@@ -242,7 +239,8 @@ func (po ProvisionerOperation) createAKSCluster() (*containerservice.ManagedClus
 	parameters, err := po.getKubernetesCreateRequest(
 		po.request.OrganizationID, po.request.ClusterID,
 		po.request.ClusterName, po.request.KubernetesVersion,
-		po.request.NumNodes, po.request.NodeType, po.request.Zone)
+		po.request.NumNodes, po.request.NodeType, po.request.Zone,
+		po.request.AzureOptions.DNSZoneName)
 	if err != nil {
 		return nil, err
 	}
@@ -427,5 +425,3 @@ func (po ProvisionerOperation) requestCertificate() derrors.Error {
 	return po.certManagerHelper.CreateCertificate(
 		po.getClusterName(po.request.ClusterName), po.request.AzureOptions.DNSZoneName)
 }
-
-

@@ -19,6 +19,9 @@ package decommissioner
 import (
 	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/grpc-utils/pkg/conversions"
+	"github.com/nalej/provisioner/internal/pkg/entities"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/net/context"
 )
 
@@ -30,15 +33,20 @@ func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
-func (h *Handler) DecomissionCluster(_ context.Context, request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, error) {
-	panic("implement me")
+func (h *Handler) DecomissionCluster(ctx context.Context, request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, error) {
+	err := entities.ValidDecommissionClusterRequest(request)
+	if err != nil {
+		log.Warn().Str("trace", err.DebugReport()).Msg(err.Error())
+		return nil, conversions.ToGRPCError(err)
+	}
+	log.Debug().Interface("request", request).Msg("decommission cluster")
+	return h.Manager.DecommissionCluster(request)
 }
 
 func (h *Handler) CheckProgress(_ context.Context, request *grpc_common_go.RequestId) (*grpc_common_go.OpResponse, error) {
-	panic("implement me")
+	return h.Manager.CheckProgress(request)
 }
 
 func (h *Handler) RemoveDecomission(_ context.Context, request *grpc_common_go.RequestId) (*grpc_common_go.Success, error) {
-	panic("implement me")
+	return h.Manager.RemoveDecommission(request)
 }
-
