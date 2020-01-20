@@ -86,6 +86,9 @@ func (cp *CLIProvisioner) Run() derrors.Error {
 	result := operation.Result()
 	cp.printJSONResult(cp.request.ClusterName, result)
 	// cp.printTableResult(result)
+	if result.ErrorMsg != "" {
+		return derrors.NewInternalError(result.ErrorMsg)
+	}
 	return nil
 }
 

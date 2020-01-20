@@ -99,6 +99,9 @@ func (cm *CLIManagement) GetKubeConfig(infraProvider providerEntities.Infrastruc
 	// Process the result
 	result := operation.Result()
 	cm.printTableResult(result)
+	if result.ErrorMsg != "" {
+		return derrors.NewInternalError(result.ErrorMsg)
+	}
 	return nil
 }
 

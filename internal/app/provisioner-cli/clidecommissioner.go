@@ -84,5 +84,8 @@ func (cs *CLIDecommissioner) Run() derrors.Error {
 	result := operation.Result()
 	cs.printJSONResult(cs.request.ClusterId, result)
 	// cp.printTableResult(result)
+	if result.ErrorMsg != "" {
+		return derrors.NewInternalError(result.ErrorMsg)
+	}
 	return nil
 }

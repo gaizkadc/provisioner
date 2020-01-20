@@ -83,5 +83,8 @@ func (cs *CLIScaler) Run() derrors.Error {
 	result := operation.Result()
 	cs.printJSONResult("unknown", result)
 	// cp.printTableResult(result)
+	if result.ErrorMsg != "" {
+		return derrors.NewInternalError(result.ErrorMsg)
+	}
 	return nil
 }
