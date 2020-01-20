@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ func NewManager(config config.Config) Manager {
 	}
 }
 
-func (m *Manager) DecommissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+func (m *Manager) DecommissionCluster(request *grpc_provisioner_go.DecommissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
 	infraProvider, err := provider.NewInfrastructureProvider(request.TargetPlatform, request.AzureCredentials, &m.Config)
 	if err != nil {
 		return nil, err

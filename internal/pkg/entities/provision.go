@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -202,7 +202,7 @@ func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) 
 	return nil
 }
 
-func ValidDecommissionClusterRequest(request *grpc_provisioner_go.DecomissionClusterRequest) derrors.Error {
+func ValidDecommissionClusterRequest(request *grpc_provisioner_go.DecommissionClusterRequest) derrors.Error {
 	if request.RequestId == "" {
 		return derrors.NewInvalidArgumentError("request_id must be set")
 	}
@@ -234,7 +234,7 @@ type DecommissionRequest struct {
 	AzureOptions *AzureOptions
 }
 
-func NewDecommissionRequest(request *grpc_provisioner_go.DecomissionClusterRequest) DecommissionRequest {
+func NewDecommissionRequest(request *grpc_provisioner_go.DecommissionClusterRequest) DecommissionRequest {
 	return DecommissionRequest{
 		RequestID:           request.GetRequestId(),
 		OrganizationID:      request.GetOrganizationId(),

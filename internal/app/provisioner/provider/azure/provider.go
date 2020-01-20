@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ func (aip *AzureInfrastructureProvider) Provision(request entities.ProvisionRequ
 	return NewProvisionerOperation(aip.credentials, request, aip.config)
 }
 
-// Decomission a cluster creates a InfrastructureOperation to decomission a cluster.
+// Decommission a cluster creates a InfrastructureOperation to decommission a cluster.
 func (aip *AzureInfrastructureProvider) Decommission(request entities.DecommissionRequest) (entities.InfrastructureOperation, derrors.Error) {
 	return NewDecommissionerOperation(aip.credentials, request, aip.config)
 }
