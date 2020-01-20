@@ -59,7 +59,8 @@ func NewCLIManagement(
 func (cm *CLIManagement) Run() derrors.Error {
 	vErr := cm.config.Validate()
 	if vErr != nil {
-		log.Fatal().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		log.Error().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		return vErr
 	}
 	cm.config.Print()
 	log.Debug().Str("target_platform", cm.request.TargetPlatform.String()).Bool("isManagementCluster", cm.request.IsManagementCluster).Msg("Cluster request received")
@@ -71,11 +72,8 @@ func (cm *CLIManagement) Run() derrors.Error {
 
 	if cm.Operation == entities.GetKubeConfig {
 		return cm.GetKubeConfig(infraProvider)
-	} else {
-		log.Error().Msg("unsupported operation")
 	}
-
-	return nil
+	return derrors.NewInternalError("unsupported operation")
 }
 
 func (cm *CLIManagement) GetKubeConfig(infraProvider providerEntities.InfrastructureProvider) derrors.Error {

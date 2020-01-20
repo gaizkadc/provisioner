@@ -54,7 +54,8 @@ func NewCLIProvisioner(
 func (cp *CLIProvisioner) Run() derrors.Error {
 	vErr := cp.config.Validate()
 	if vErr != nil {
-		log.Fatal().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		log.Error().Str("err", vErr.DebugReport()).Msg("invalid configuration")
+		return vErr
 	}
 	cp.config.Print()
 	log.Debug().Str("target_platform", cp.request.TargetPlatform.String()).Bool("isProduction", cp.request.IsProduction).Msg("Provision request received")
