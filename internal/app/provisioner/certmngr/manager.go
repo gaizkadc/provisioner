@@ -17,23 +17,21 @@
 package certmngr
 
 import (
+	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
-	"strings"
-	"time"
-
 	"github.com/nalej/derrors"
 	"github.com/nalej/provisioner/internal/app/provisioner/k8s"
 	"github.com/nalej/provisioner/internal/pkg/config"
 	"github.com/rs/zerolog/log"
-	v1 "k8s.io/api/core/v1"
+	"io/ioutil"
+	"k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes/scheme"
+	"os"
+	"strings"
 )
 
 //ClientCertificate is the name used by both the Certificate resource and the Secret for the TLS client certificate
@@ -42,8 +40,8 @@ const ClientCertificate = "tls-client-certificate"
 //CACertificate is the name used by the Secret resource for the TLS CA Certificate
 const CACertificate = "ca-certificate"
 
-//CertManagerYAMLPrefix is the prefix used by the cert-manager K8S resource files
-const CertManagerYAMLPrefix = "cert-manager."
+//CertManagerYAMLFile is the name that contains the cert-manager configuration
+const CertManagerYAMLFile = "cert-manager.yaml"
 
 //ProductionLetsEncryptURL to register a Let's encrypt account in their production environment
 const ProductionLetsEncryptURL = "https://acme-v02.api.letsencrypt.org/directory"
@@ -83,7 +81,7 @@ const ClientCertificateEntry = "CLIENT_CERTIFICATE_NAME"
 
 //AzureCertificateIssuerTemplate to create a ClusterIssuer resource for Azure
 const AzureCertificateIssuerTemplate = `
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: certmanager.k8s.io/v1alpha2
 kind: ClusterIssuer
 metadata:
   name: letsencrypt
@@ -109,7 +107,7 @@ spec:
 
 //CertificateTemplate to create a Certificate resource
 const CertificateTemplate = `
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: certmanager.k8s.io/v1alpha2
 kind: Certificate
 metadata:
  name: CLIENT_CERTIFICATE_NAME
@@ -165,6 +163,114 @@ func (cmh *CertManagerHelper) Destroy() {
 	cmh.cleanupTempFile(*cmh.kubeConfigFilePath)
 }
 
+// InstallCertManager installs the cert manager on a given cluster.
+func (cmh *CertManagerHelper) InstallCertManager() derrors.Error {
+	// Be sure the cert manager yaml configuration file is there
+	filePath := cmh.config.ResourcesPath+"/"+CertManagerYAMLFile
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		log.Error().Err(err).Msg("cert manager configuration could not be found")
+		return derrors.NewFailedPreconditionError("cert manager configuration could not be found", err)
+	}
+
+	yamlContent, ioErr := ioutil.ReadFile(filePath)
+	if ioErr != nil {
+		log.Error().Err(ioErr).Msg("error reading cert-manager configuration file")
+		return derrors.NewInternalError("error reading cert-manager configuration file", ioErr)
+	}
+
+	chunks := bytes.Split(yamlContent,[]byte(yamlSeparator))
+	log.Debug().Int("number of chunks", len(chunks)).Msg("number of chunks in the file")
+	for _, chunk := range chunks {
+		err := cmh.installCertManagerConfigEntry(chunk)
+		if err != nil {
+			return err
+		}
+	}
+
+	/*
+	scanner := bufio.NewScanner(bytes.NewReader(yamlContent))
+	scanner.Split(splitYAMLDocument)
+
+	// Process every token in the file
+	for scanner.Scan() {
+		chunk := scanner.Bytes()
+		err := cmh.installCertManagerConfigEntry(chunk)
+		if err != nil {
+			return err
+		}
+	}
+	*/
+
+	return nil
+}
+
+
+
+const yamlSeparator = "---"
+
+// splitYAMLDocument is a bufio.SplitFunc for splitting YAML streams into individual documents.
+// This function is taken from the Kubernetes api
+func splitYAMLDocument(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	sep := len([]byte(yamlSeparator))
+	if i := bytes.Index(data, []byte(yamlSeparator)); i >= 0 {
+		// We have a potential document terminator
+		i += sep
+		after := data[i:]
+		if len(after) == 0 {
+			// we can't read any more characters
+			if atEOF {
+				return len(data), data[:len(data)-sep], nil
+			}
+			return 0, nil, nil
+		}
+		if j := bytes.IndexByte(after, '\n'); j >= 0 {
+			return i + j + 1, data[0 : i-sep], nil
+		}
+		return 0, nil, nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
+
+// installCertManagerConfigEntry takes an object definition from a yaml file and runs the associated k8s command.
+func (cmh *CertManagerHelper) installCertManagerConfigEntry(chunk []byte) derrors.Error {
+	// We use a YAML decoder to decode the resource straight into an
+	// unstructured object. This way, we can deal with resources that are
+	// not known to this client - like CustomResourceDefinitions
+	obj := runtime.Object(&unstructured.Unstructured{})
+	yamlDecoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(chunk), 1024)
+	err := yamlDecoder.Decode(obj)
+	if err != nil {
+		return derrors.NewInvalidArgumentError("cannot parse component file", err)
+	}
+
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	log.Debug().Str("resource", gvk.String()).Msg("decoded resource")
+	// Now let's see if it's a resource we know and can type, so we can
+	// decide if we need to do some modifications. We ignore the error
+	// because that just means we don't have the specific implementation of
+	// the resource type and that's ok
+	clientScheme := scheme.Scheme
+	typed, _ := scheme.Scheme.New(gvk)
+	if typed != nil {
+		// Ah, we can convert this to something specific to deal with!
+		err := clientScheme.Convert(obj, typed, nil)
+		if err != nil {
+			return derrors.NewInternalError("cannot convert resource to specific type", err)
+		}
+	}
+	return cmh.Kubernetes.Create(obj)
+}
+
+/*
 // InstallCertManager installs the cert manager on a given cluster.
 func (cmh *CertManagerHelper) InstallCertManager() derrors.Error {
 	// List of files
@@ -223,6 +329,7 @@ func (cmh *CertManagerHelper) installCertManagerFile(fileName string) derrors.Er
 	}
 	return cmh.Kubernetes.Create(obj)
 }
+*/
 
 // cleanupTempFile removes the temporal file storing the kubeconfig file.
 func (cmh *CertManagerHelper) cleanupTempFile(path string) {
