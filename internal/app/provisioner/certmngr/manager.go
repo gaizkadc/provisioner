@@ -81,7 +81,7 @@ const ClientCertificateEntry = "CLIENT_CERTIFICATE_NAME"
 
 //AzureCertificateIssuerTemplate to create a ClusterIssuer resource for Azure
 const AzureCertificateIssuerTemplate = `
-apiVersion: certmanager.k8s.io/v1alpha2
+apiVersion: certmanager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
   name: letsencrypt
@@ -107,7 +107,7 @@ spec:
 
 //CertificateTemplate to create a Certificate resource
 const CertificateTemplate = `
-apiVersion: certmanager.k8s.io/v1alpha2
+apiVersion: certmanager.io/v1alpha2
 kind: Certificate
 metadata:
  name: CLIENT_CERTIFICATE_NAME
