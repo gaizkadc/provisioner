@@ -87,32 +87,6 @@ const ClientCertificateEntry = "CLIENT_CERTIFICATE_NAME"
 const YamlSeparator = "---"
 
 //AzureCertificateIssuerTemplate to create a ClusterIssuer resource for Azure
-/*
-const AzureCertificateIssuerTemplate = `
-apiVersion: cert-manager.io/v1alpha2
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt
-spec:
-  acme:
-    server: LETS_ENCRYPT_URL
-    email: jarvis@nalej.com
-    privateKeySecretRef:
-      name: letsencrypt
-    dns01:
-      providers:
-        - name: azuredns
-          azuredns:
-            clientID: CLIENT_ID
-            clientSecretSecretRef:
-              name: k8s-service-principal
-              key: client-secret
-            subscriptionID: SUBSCRIPTION_ID
-            tenantID: TENANT_ID
-            resourceGroupName: RESOURCE_GROUP_NAME
-            hostedZoneName: DNS_ZONE
-`*/
-
 const AzureCertificateIssuerTemplate = `
 apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
@@ -137,33 +111,6 @@ spec:
           hostedZoneName: DNS_ZONE
           environment: AzurePublicCloud
 `
-
-/*
-apiVersion: cert-manager.io/v1alpha2
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt
-spec:
-  acme:
-    email: jarvis@nalej.com
-    privateKeySecretRef:
-      name: letsencrypt
-    server: https://acme-v02.api.letsencrypt.org/directory
-    solvers:
-    - dns01:
-        azuredns:
-          clientID: ed55f953-4ff1-4163-83ff-d60f798b7897
-          clientSecretSecretRef:
-            key: client-secret
-            name: k8s-service-principal
-          environment: AzurePublicCloud
-          hostedZoneName: nalej.io
-          resourceGroupName: prod
-          subscriptionID: 31e8b4f8-0c97-445a-88ca-42e4991b8f40
-          tenantID: 27be296e-c3a8-42f0-a45b-a9cd5002143f
- */
-
-
 
 //CertificateTemplate to create a Certificate resource
 const CertificateTemplate = `
@@ -287,67 +234,6 @@ func (cmh *CertManagerHelper) installCertManagerConfigEntry(chunk []byte) derror
 	}
 	return cmh.Kubernetes.Create(obj)
 }
-
-/*
-// InstallCertManager installs the cert manager on a given cluster.
-func (cmh *CertManagerHelper) InstallCertManager() derrors.Error {
-	// List of files
-	fileInfo, err := ioutil.ReadDir(cmh.config.ResourcesPath)
-	if err != nil {
-		log.Fatal().Err(err).Str("resourcesPath", cmh.config.ResourcesPath).Msg("cannot read resources dir")
-	}
-	targetFiles := make([]string, 0)
-	for _, file := range fileInfo {
-		if strings.HasPrefix(file.Name(), CertManagerYAMLPrefix) && strings.HasSuffix(file.Name(), ".yaml") {
-			targetFiles = append(targetFiles, file.Name())
-		}
-	}
-	// Now trigger the install process of all involved YAML
-	var installErr derrors.Error
-	for index := 0; index < len(targetFiles) && installErr == nil; index++ {
-		installErr = cmh.installCertManagerFile(targetFiles[index])
-	}
-	// We let cert-manager to start itself inside the cluster
-	// TODO: Provide a more accurate way to detect that cert-manager is ready to receive operations
-	time.Sleep(30 * time.Second)
-	return installErr
-}
-
-// installCertManager triggers the installation of the cert manager YAML
-func (cmh *CertManagerHelper) installCertManagerFile(fileName string) derrors.Error {
-	certManagerPath := path.Join(cmh.config.ResourcesPath, fileName)
-	f, err := os.Open(certManagerPath)
-	if err != nil {
-		return derrors.NewPermissionDeniedError("cannot read component file", err)
-	}
-	defer f.Close()
-	// We use a YAML decoder to decode the resource straight into an
-	// unstructured object. This way, we can deal with resources that are
-	// not known to this client - like CustomResourceDefinitions
-	obj := runtime.Object(&unstructured.Unstructured{})
-	yamlDecoder := yaml.NewYAMLOrJSONDecoder(f, 1024)
-	err = yamlDecoder.Decode(obj)
-	if err != nil {
-		return derrors.NewInvalidArgumentError("cannot parse component file", err)
-	}
-	gvk := obj.GetObjectKind().GroupVersionKind()
-	log.Debug().Str("resource", gvk.String()).Msg("decoded resource")
-	// Now let's see if it's a resource we know and can type, so we can
-	// decide if we need to do some modifications. We ignore the error
-	// because that just means we don't have the specific implementation of
-	// the resource type and that's ok
-	clientScheme := scheme.Scheme
-	typed, _ := scheme.Scheme.New(gvk)
-	if typed != nil {
-		// Ah, we can convert this to something specific to deal with!
-		err := clientScheme.Convert(obj, typed, nil)
-		if err != nil {
-			return derrors.NewInternalError("cannot convert resource to specific type", err)
-		}
-	}
-	return cmh.Kubernetes.Create(obj)
-}
-*/
 
 // cleanupTempFile removes the temporal file storing the kubeconfig file.
 func (cmh *CertManagerHelper) cleanupTempFile(path string) {
