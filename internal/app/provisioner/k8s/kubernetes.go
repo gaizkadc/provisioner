@@ -308,6 +308,8 @@ func (k *Kubernetes) MatchCRDStatus(namespace string, group string, version stri
 		Resource: resource,
 	}
 
+	log.Debug().Interface("resourceRequest", resourceRequest).Msg("MatchCRDStatus")
+
 	var client dynamic.ResourceInterface
 	if namespace == "" {
 		client = k.dynClient.Resource(resourceRequest)
@@ -334,4 +336,27 @@ func (k *Kubernetes) MatchCRDStatus(namespace string, group string, version stri
 	}
 
 	return &issued, nil
+}
+
+// WaitCRDStatus checks the status of an existing
+func (k *Kubernetes) WaitCRDStatus(namespace string, group string, version string, resource string, name string,
+	key []string, expected string, checkout time.Duration, timeout time.Duration) (derrors.Error) {
+	ticker := time.NewTicker(checkout)
+	exit := time.NewTimer(timeout)
+	for {
+		select{
+		case <- ticker.C:
+			ok, err := k.MatchCRDStatus(namespace, group, version, resource, name, key, expected)
+			log.Debug().Msg("checking CRD status...")
+			if *ok {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+		case <- exit.C:
+			log.Error().Msg("timeout reached when waiting for CRD status")
+			return derrors.NewInternalError("timeout reached when waiting for CRD status")
+		}
+	}
 }

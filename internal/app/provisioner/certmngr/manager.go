@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"os"
 	"strings"
+	"time"
 )
 
 //ClientCertificate is the name used by both the Certificate resource and the Secret for the TLS client certificate
@@ -39,6 +40,9 @@ const ClientCertificate = "tls-client-certificate"
 
 //CACertificate is the name used by the Secret resource for the TLS CA Certificate
 const CACertificate = "ca-certificate"
+
+//CertManagerNamespace is the name of the namespace used by cert-manager
+const CertManagerNamespace = "cert-manager"
 
 //CertManagerYAMLFile is the name that contains the cert-manager configuration
 const CertManagerYAMLFile = "cert-manager.yaml"
@@ -79,9 +83,13 @@ const ClusterNameEntry = "CLUSTER_NAME"
 //ClientCertificateEntry is the placeholder for the TLS client certificate name
 const ClientCertificateEntry = "CLIENT_CERTIFICATE_NAME"
 
+//YamlSeparator is the string to be used when splitting yaml files into chunks
+const YamlSeparator = "---"
+
 //AzureCertificateIssuerTemplate to create a ClusterIssuer resource for Azure
+/*
 const AzureCertificateIssuerTemplate = `
-apiVersion: certmanager.io/v1alpha2
+apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
   name: letsencrypt
@@ -103,11 +111,63 @@ spec:
             tenantID: TENANT_ID
             resourceGroupName: RESOURCE_GROUP_NAME
             hostedZoneName: DNS_ZONE
+`*/
+
+const AzureCertificateIssuerTemplate = `
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    server: LETS_ENCRYPT_URL
+    email: jarvis@nalej.com
+    privateKeySecretRef:
+      name: letsencrypt
+    solvers:
+    - dns01:
+        azuredns:
+          clientID: CLIENT_ID
+          clientSecretSecretRef:
+             name: k8s-service-principal
+             key: client-secret
+          subscriptionID: SUBSCRIPTION_ID
+          tenantID: TENANT_ID
+          resourceGroupName: RESOURCE_GROUP_NAME
+          hostedZoneName: DNS_ZONE
+          environment: AzurePublicCloud
 `
+
+/*
+apiVersion: cert-manager.io/v1alpha2
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt
+spec:
+  acme:
+    email: jarvis@nalej.com
+    privateKeySecretRef:
+      name: letsencrypt
+    server: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+    - dns01:
+        azuredns:
+          clientID: ed55f953-4ff1-4163-83ff-d60f798b7897
+          clientSecretSecretRef:
+            key: client-secret
+            name: k8s-service-principal
+          environment: AzurePublicCloud
+          hostedZoneName: nalej.io
+          resourceGroupName: prod
+          subscriptionID: 31e8b4f8-0c97-445a-88ca-42e4991b8f40
+          tenantID: 27be296e-c3a8-42f0-a45b-a9cd5002143f
+ */
+
+
 
 //CertificateTemplate to create a Certificate resource
 const CertificateTemplate = `
-apiVersion: certmanager.io/v1alpha2
+apiVersion: cert-manager.io/v1alpha2
 kind: Certificate
 metadata:
  name: CLIENT_CERTIFICATE_NAME
@@ -178,7 +238,7 @@ func (cmh *CertManagerHelper) InstallCertManager() derrors.Error {
 		return derrors.NewInternalError("error reading cert-manager configuration file", ioErr)
 	}
 
-	chunks := bytes.Split(yamlContent,[]byte(yamlSeparator))
+	chunks := bytes.Split(yamlContent,[]byte(YamlSeparator))
 	log.Debug().Int("number of chunks", len(chunks)).Msg("number of chunks in the file")
 	for _, chunk := range chunks {
 		err := cmh.installCertManagerConfigEntry(chunk)
@@ -186,57 +246,15 @@ func (cmh *CertManagerHelper) InstallCertManager() derrors.Error {
 			return err
 		}
 	}
-
-	/*
-	scanner := bufio.NewScanner(bytes.NewReader(yamlContent))
-	scanner.Split(splitYAMLDocument)
-
-	// Process every token in the file
-	for scanner.Scan() {
-		chunk := scanner.Bytes()
-		err := cmh.installCertManagerConfigEntry(chunk)
-		if err != nil {
-			return err
-		}
+	log.Info().Msg("waiting for cert-manager web hook to be up and ready...")
+	waitErr := cmh.Kubernetes.WaitCRDStatus(CertManagerNamespace, "apps", "v1",
+		"deployments", "cert-manager-webhook", []string{"status", "conditions", "0","type"}, "Available",
+		time.Second * 20, time.Minute * 3)
+	if waitErr != nil {
+		return waitErr
 	}
-	*/
 
 	return nil
-}
-
-
-
-const yamlSeparator = "---"
-
-// splitYAMLDocument is a bufio.SplitFunc for splitting YAML streams into individual documents.
-// This function is taken from the Kubernetes api
-func splitYAMLDocument(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-	sep := len([]byte(yamlSeparator))
-	if i := bytes.Index(data, []byte(yamlSeparator)); i >= 0 {
-		// We have a potential document terminator
-		i += sep
-		after := data[i:]
-		if len(after) == 0 {
-			// we can't read any more characters
-			if atEOF {
-				return len(data), data[:len(data)-sep], nil
-			}
-			return 0, nil, nil
-		}
-		if j := bytes.IndexByte(after, '\n'); j >= 0 {
-			return i + j + 1, data[0 : i-sep], nil
-		}
-		return 0, nil, nil
-	}
-	// If we're at EOF, we have a final, non-terminated line. Return it.
-	if atEOF {
-		return len(data), data, nil
-	}
-	// Request more data.
-	return 0, nil, nil
 }
 
 
@@ -419,15 +437,32 @@ func (cmh *CertManagerHelper) createCertificateIssuerOnAzure(
 	toCreate = strings.ReplaceAll(toCreate, ResourceGroupNameEntry, resourceGroupName)
 	toCreate = strings.ReplaceAll(toCreate, DNSZoneEntry, dnsZone)
 
-	return cmh.Kubernetes.CreateUnstructure(toCreate)
+	// The certificate web-hook may have unhealthy status just after created retry some times and wait
+	retries := 5
+	for {
+		err := cmh.Kubernetes.CreateUnstructure(toCreate)
+		if err == nil {
+			return nil
+		}
+		log.Debug().Err(err).Msg("error when creating certificate issuer. Probably the web hook is unhealthy.")
+		retries--
+		if retries == 0 {
+			log.Error().Err(err).Msg("number of retries exceeded when creating certificate issuer")
+			return err
+		}
+		log.Info().Msg("impossible to create the certificate issuer. Sleep and retry")
+		time.Sleep(time.Second*20)
+	}
+
+	return nil
 
 }
 
 // CheckCertificateIssuer waits for the certificate to be issued by the authority
 func (cmh *CertManagerHelper) CheckCertificateIssuer() derrors.Error {
 	issued, err := cmh.Kubernetes.MatchCRDStatus(
-		"", "certmanager.k8s.io",
-		"v1alpha1",
+		"", "cert-manager.io",
+		"v1alpha2",
 		"clusterissuers", "letsencrypt",
 		[]string{"status", "conditions", "0", "reason"}, "ACMEAccountRegistered")
 	if err != nil {
@@ -456,8 +491,8 @@ func (cmh *CertManagerHelper) CreateCertificate(clusterName string, dnsZone stri
 //ValidateCertificate validates if a certificate has been issued successfully
 func (cmh *CertManagerHelper) ValidateCertificate() derrors.Error {
 	issued, err := cmh.Kubernetes.MatchCRDStatus(
-		"nalej", "certmanager.k8s.io",
-		"v1alpha1",
+		"nalej", "cert-manager.io",
+		"v1alpha2",
 		"certificates", ClientCertificate,
 		[]string{"status", "conditions", "0", "reason"}, "Ready")
 	if err != nil {
