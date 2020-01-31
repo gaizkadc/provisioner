@@ -35,6 +35,7 @@ import (
 	"time"
 )
 
+
 //ClientCertificate is the name used by both the Certificate resource and the Secret for the TLS client certificate
 const ClientCertificate = "tls-client-certificate"
 

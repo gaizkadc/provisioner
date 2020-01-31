@@ -19,6 +19,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"github.com/nalej/provisioner/internal/app/provisioner/certcompleter"
 	"sync"
 	"time"
 
@@ -53,6 +54,7 @@ type ProvisionerOperation struct {
 	result            *entities.ProvisionResult
 	config            *config.Config
 	certManagerHelper *certmngr.CertManagerHelper
+	certCompleterManagerHelper *certcompleter.CertCompleterHelper
 }
 
 // NewProvisionerOperation creates a new Azure provisioning operation.
@@ -70,6 +72,7 @@ func NewProvisionerOperation(credentials *AzureCredentials, request entities.Pro
 		},
 		config:            config,
 		certManagerHelper: certmngr.NewCertManagerHelper(config),
+		certCompleterManagerHelper: certcompleter.NewCertCompleterHelper(config),
 	}, nil
 }
 
@@ -139,6 +142,20 @@ func (po ProvisionerOperation) Execute(callback func(requestId string)) {
 		return
 	}
 	po.AddToLog("DNS entries have been defined")
+
+
+	// The cert completer is a workaround provided by github.com/erwinvaneyk/cert-completer
+	// to fill the ca.crt field in the secrets generated with cert-manager using ACME.
+	// There is an ongoing issue/discussion github.com/jetstack/cert-manager/issues/2111 that
+	// affects the fill of the ca.crt field whe using certmanager with ACME with the new
+	// versions of cert-manager. There is not a clear decision about how to proceed in this moment.
+	// Right now this additional components seem a reasonable workaround.
+	err = po.installCertificateCompleter()
+	if err != nil {
+		po.notifyError(err, callback)
+		return
+	}
+	po.AddToLog("Cert completer has been installed")
 
 	err = po.installCertManager()
 	if err != nil {
@@ -399,6 +416,15 @@ func (po ProvisionerOperation) createApplicationDNSEntries(resourceGroupName str
 	}
 
 	return nil
+}
+
+func (po ProvisionerOperation) installCertificateCompleter() derrors.Error {
+	po.AddToLog("installing certificate completer")
+	err := po.certCompleterManagerHelper.Connect(po.result.RawKubeConfig)
+	if err != nil {
+		return err
+	}
+	return po.certCompleterManagerHelper.InstallCertCompleter()
 }
 
 // installCertManager triggers the installation of the cert manager component in charge of providing
