@@ -1,10 +1,10 @@
 # provisioner
 
-This repository contains the `provisioner` component in charge of creating new clusters by using a given infrastructure provider.
+The `provisioner` component is in charge of creating new clusters by using a given infrastructure provider.
 
 ## Getting Started
 
-The component includes two binaries, the `provisioner` itself and a CLI called `provisioner-cli` to enable several functionalities that will be explained later. 
+The component includes two binaries, the `provisioner` itself and a CLI called `provisioner-cli` to enable several functionalities, like creating a cluster, deleting it or getting the certificate status of a cluster.
 
 ### Prerequisites
 
@@ -17,9 +17,7 @@ In order to build and compile this repository use the provided Makefile:
 ```
 make all
 ```
-
-This operation generates the binaries for this repo, download dependencies,
-run existing tests and generate ready-to-deploy Kubernetes files.
+This operation generates the binaries for this repo, downloads the required dependencies, runs existing tests and generates ready-to-deploy Kubernetes files.
 
 ### Run tests
 
@@ -44,13 +42,12 @@ dep ensure -update -v
 ```
 
 ## User client interface
-To get the certificate status on a provisioned cluster:
-
+To get the certificate status of a provisioned cluster:
 ```
 provisioner-cli cert status [kubeConfigPath] [flags]
 ```
 
-To provision a new cluster:
+To provision (create) a new cluster:
 ```
 provisioner-cli provision [flags]
 ```
@@ -67,7 +64,7 @@ Please read [contributing.md](contributing.md) for details on our code of conduc
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/nalej/provisioner/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the available versions, see the [tags on this repository](https://github.com/nalej/provisioner/tags). 
 
 ## Authors
 
